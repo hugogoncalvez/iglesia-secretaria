@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+html.dark {
+  color-scheme: dark;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #certificado-printable,
+  #certificado-printable * {
+    visibility: visible;
+  }
+  #certificado-printable {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
