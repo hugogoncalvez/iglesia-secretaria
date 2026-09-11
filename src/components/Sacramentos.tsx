@@ -486,7 +486,7 @@ export default function Sacramentos() {
               type="button"
               title="Cerrar"
               onClick={() => setFormAbierto(false)}
-              className="absolute -top-3 -right-3 p-2 rounded-full bg-white dark:bg-noche-700 shadow border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-100 transition-colors"
+              className="absolute -top-3 -right-3 p-2 rounded-full bg-red-100 dark:bg-red-900/40 shadow border border-red-200 dark:border-red-800 text-red-600 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/60 transition-colors"
             >
               <X size={16} />
             </button>
