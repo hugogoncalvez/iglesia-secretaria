@@ -236,6 +236,15 @@ export default function Sacramentos() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtros]);
 
+  useEffect(() => {
+    if (!formAbierto) return;
+    const h = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFormAbierto(false);
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [formAbierto]);
+
   function abrirNuevo() {
     setEditId(null);
     setForm({
@@ -465,25 +474,23 @@ export default function Sacramentos() {
         )}
       </div>
 
-      {/* Formulario en drawer lateral */}
+      {/* Formulario en modal centrado */}
       {formAbierto && (
-        <div className="no-print fixed inset-0 z-40 bg-black/40" onClick={() => setFormAbierto(false)}>
+        <div className="no-print fixed inset-0 z-40 bg-black/40 flex items-start justify-center p-4 overflow-auto" onClick={() => setFormAbierto(false)}>
           <form
             onSubmit={guardar}
             onClick={(e) => e.stopPropagation()}
-            className="absolute right-0 top-0 h-full w-full max-w-2xl overflow-y-auto bg-white dark:bg-noche-700 dark:text-slate-100 shadow-xl border-l border-slate-200 dark:border-slate-700 p-4 space-y-4 animate-drawer-in"
+            className="relative bg-white dark:bg-noche-700 dark:text-slate-100 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 max-w-3xl w-full p-4 space-y-4 my-6 animate-modal-in"
           >
-            <div className="flex items-center gap-2 sticky top-0 bg-white dark:bg-noche-700 pb-2">
-              <h3 className="font-display font-bold text-lg flex-1">{editId ? "Editar acta" : "Nueva acta"}</h3>
-              <button
-                type="button"
-                title="Cerrar"
-                onClick={() => setFormAbierto(false)}
-                className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-300 transition-colors"
-              >
-                <X size={18} />
-              </button>
-            </div>
+            <button
+              type="button"
+              title="Cerrar"
+              onClick={() => setFormAbierto(false)}
+              className="absolute -top-3 -right-3 p-2 rounded-full bg-white dark:bg-noche-700 shadow border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-100 transition-colors"
+            >
+              <X size={16} />
+            </button>
+            <h3 className="font-display font-bold text-lg">{editId ? "Editar acta" : "Nueva acta"}</h3>
 
             <Campo label="Sacramento">
               <select
