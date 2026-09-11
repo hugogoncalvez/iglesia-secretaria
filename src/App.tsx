@@ -80,7 +80,7 @@ export default function App() {
       <header className="no-print bg-slate-50 dark:bg-slate-700 border-b dark:border-slate-600 px-4 py-3 flex items-center gap-3">
         <img src={logoUrl} alt="Sello parroquial" className="w-10 h-14 object-contain" />
         <div className="flex-1">
-          <h1 className="font-bold text-slate-800 dark:text-slate-100">Secretaría · María Auxiliadora</h1>
+          <h1 className="font-display font-bold text-slate-800 dark:text-slate-100">Secretaría · María Auxiliadora</h1>
           <p className="text-xs text-slate-500 dark:text-slate-300">
             {usuario} · {getMode() === "sqlite" ? "Base local SQLite" : "Modo web temporal (en Tauri usa SQLite)"}
           </p>
@@ -128,7 +128,7 @@ export default function App() {
         </div>
       )}
 
-      <main className="no-print max-w-5xl mx-auto p-4">
+      <main className="no-print max-w-5xl mx-auto p-4 animate-fade-in">
         {vista === "actas" ? (
           <Sacramentos />
         ) : vista === "usuarios" ? (

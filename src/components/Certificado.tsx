@@ -79,11 +79,11 @@ export function CertificadoPrintable({ a, cfg }: { a: ActaDetalle; cfg: ParishCo
       <div id="certificado-printable" className="bg-white p-10 max-w-2xl mx-auto text-slate-900">
         <div className="text-center border-b-2 border-slate-300 pb-4 mb-6">
           <div className="w-28 mx-auto drop-shadow-sm" dangerouslySetInnerHTML={{ __html: selloSvgRaw() }} />
-          <h1 className="text-xl font-bold tracking-wide text-slate-800 mt-2">{cfg.parroquia}</h1>
+          <h1 className="font-display text-xl font-bold tracking-wide text-slate-800 mt-2">{cfg.parroquia}</h1>
           <p className="text-xs text-slate-500 tracking-wide">{cfg.devocion} · {cfg.diocesis}</p>
           <p className="text-xs text-slate-500 tracking-wide">{cfg.direccion}</p>
         </div>
-        <h2 className="text-3xl font-semibold text-center mb-8 text-slate-700">{TITULO[a.tipo] ?? "Constancia"}</h2>
+        <h2 className="font-display text-3xl font-semibold text-center mb-8 text-slate-700">{TITULO[a.tipo] ?? "Constancia"}</h2>
         <div className="mx-auto w-16 h-0.5 bg-slate-400 mb-8" />
         <p className="leading-relaxed mb-4 text-justify text-slate-800">
           Se deja constancia que <b>{p.apellido_nombres}</b>

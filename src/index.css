@@ -2,8 +2,48 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+@theme {
+  /* Serif con carácter eclesial/documental (fuentes del sistema: funciona sin internet) */
+  --font-display: Georgia, "Times New Roman", serif;
+
+  --animate-modal-in: modal-in 0.18s ease-out;
+  --animate-fade-in: fade-in 0.25s ease-out;
+
+  @keyframes modal-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px) scale(0.99);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}
+
 html.dark {
   color-scheme: dark;
+}
+
+@layer base {
+  body {
+    @apply bg-slate-200 text-slate-900 antialiased dark:bg-slate-800 dark:text-slate-100;
+  }
+
+  input,
+  select,
+  button {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 dark:focus-visible:ring-slate-500;
+  }
 }
 
 @media print {

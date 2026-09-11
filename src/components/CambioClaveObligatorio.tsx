@@ -33,7 +33,7 @@ export default function CambioClaveObligatorio({
     <div className="min-h-screen flex items-center justify-center bg-slate-200 dark:bg-slate-800 p-4">
       <form onSubmit={guardar} className="w-full max-w-sm bg-slate-50 dark:bg-slate-700 dark:text-slate-100 rounded-xl shadow p-6 space-y-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-800 dark:text-slate-100">Cambiá tu clave</h1>
+          <h1 className="font-display text-xl font-bold text-slate-800 dark:text-slate-100">Cambiá tu clave</h1>
           <p className="text-sm text-slate-500 dark:text-slate-300">
             Estás usando la clave de fábrica. Por seguridad, definí una nueva para <b>{usuario}</b> antes de continuar.
           </p>

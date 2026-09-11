@@ -1,5 +1,5 @@
 import { useEffect, useId, useState } from "react";
-import { Eye, FileText, Pencil, Trash2 } from "lucide-react";
+import { Eye, FileText, Pencil, SearchX, Trash2 } from "lucide-react";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import {
   CON_CERTIFICADO,
@@ -323,7 +323,8 @@ export default function Sacramentos() {
         {cargando ? (
           <p className="p-4 text-sm text-slate-500 dark:text-slate-300">Cargando…</p>
         ) : filas.length === 0 ? (
-          <div className="p-4 space-y-2">
+          <div className="p-6 space-y-3 text-center">
+            <SearchX size={28} className="mx-auto text-slate-300 dark:text-slate-500" />
             <p className="text-sm text-slate-500 dark:text-slate-300">Sin actas. Creá la primera con “+ Acta”.</p>
             {import.meta.env.DEV && (
               <button onClick={cargarDemo} className="text-sm border dark:border-slate-500 rounded px-3 py-1.5">
@@ -414,8 +415,8 @@ export default function Sacramentos() {
       {/* Formulario adaptativo */}
       {formAbierto && (
         <div className="no-print fixed inset-0 bg-black/40 flex items-start justify-center p-4 overflow-auto">
-          <form onSubmit={guardar} className="bg-slate-50 dark:bg-slate-700 dark:text-slate-100 rounded-xl shadow max-w-3xl w-full p-4 space-y-4 my-6">
-            <h3 className="font-bold">{editId ? "Editar acta" : "Nueva acta"}</h3>
+          <form onSubmit={guardar} className="bg-slate-50 dark:bg-slate-700 dark:text-slate-100 rounded-xl shadow max-w-3xl w-full p-4 space-y-4 my-6 animate-modal-in">
+            <h3 className="font-display font-bold text-lg">{editId ? "Editar acta" : "Nueva acta"}</h3>
 
             <Campo label="Sacramento">
               <select
@@ -550,8 +551,8 @@ export default function Sacramentos() {
       {/* Certificado */}
       {imprimiendo && (CON_CERTIFICADO as string[]).includes(imprimiendo.tipo) && (
         <div className="no-print fixed inset-0 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-slate-50 dark:bg-slate-700 dark:text-slate-100 rounded-xl shadow max-w-2xl w-full p-4 space-y-3 max-h-[90vh] overflow-auto">
-            <h3 className="font-bold">Certificado — {imprimiendo.persona.apellido_nombres}</h3>
+          <div className="bg-slate-50 dark:bg-slate-700 dark:text-slate-100 rounded-xl shadow max-w-2xl w-full p-4 space-y-3 max-h-[90vh] overflow-auto animate-modal-in">
+            <h3 className="font-display font-bold text-lg">Certificado — {imprimiendo.persona.apellido_nombres}</h3>
             <CertificadoPrintable a={imprimiendo} cfg={cfg} />
             <div className="flex flex-wrap gap-2">
               <button className="bg-slate-900 text-white rounded px-4 py-1.5 text-sm" onClick={() => window.print()}>Imprimir</button>
@@ -615,8 +616,8 @@ function DetalleModal({ a, onClose, onCertificado }: { a: ActaDetalle; onClose: 
 
   return (
     <div className="no-print fixed inset-0 bg-black/40 flex items-start justify-center p-4 overflow-auto">
-      <div className="bg-slate-50 dark:bg-slate-700 dark:text-slate-100 rounded-xl shadow max-w-2xl w-full p-4 space-y-3 my-6">
-        <h3 className="font-bold">Acta de {a.tipo} — Libro {a.libro || "—"}, Folio {a.folio || "—"}</h3>
+      <div className="bg-slate-50 dark:bg-slate-700 dark:text-slate-100 rounded-xl shadow max-w-2xl w-full p-4 space-y-3 my-6 animate-modal-in">
+        <h3 className="font-display font-bold text-lg">Acta de {a.tipo} — Libro {a.libro || "—"}, Folio {a.folio || "—"}</h3>
         {personas.map(([titulo, p]) => (
           <div key={titulo} className="border dark:border-slate-500 rounded-lg p-3 text-sm grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1">
             <p className="md:col-span-2 font-bold">{titulo}: {p.apellido_nombres}</p>
