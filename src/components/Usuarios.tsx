@@ -83,11 +83,12 @@ export default function Usuarios({ actual, onChange }: { actual: string; onChang
 
   return (
     <div className="space-y-3">
-      <form onSubmit={agregar} className="bg-slate-50 dark:bg-slate-700 dark:text-slate-100 rounded-xl shadow p-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+      <form onSubmit={agregar} className="bg-white dark:bg-noche-700 dark:text-slate-100 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 space-y-3 max-w-md">
+        <h3 className="font-display font-bold">Nuevo usuario</h3>
         <div>
-          <label className="text-xs font-medium">Nuevo usuario</label>
+          <label className="text-xs font-medium">Usuario</label>
           <input
-            className="mt-1 w-full border rounded px-2 py-1.5 bg-slate-50 dark:bg-slate-700 dark:border-slate-500 dark:text-slate-100"
+            className="mt-1 w-full border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1.5 bg-parroquia-100 dark:bg-noche-600 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-parroquia-700 focus:border-transparent transition-colors"
             value={nuevo}
             onChange={(e) => setNuevo(e.target.value)}
             placeholder="Ej: secretaria"
@@ -96,15 +97,13 @@ export default function Usuarios({ actual, onChange }: { actual: string; onChang
         <div>
           <label className="text-xs font-medium">Clave inicial</label>
           <ClaveInput
-            className="mt-1 w-full border rounded px-2 py-1.5 bg-white dark:bg-slate-700 dark:border-slate-500 dark:text-slate-100"
+            className="mt-1 w-full border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1.5 bg-parroquia-100 dark:bg-noche-600 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-parroquia-700 focus:border-transparent transition-colors"
             value={claveNueva}
             onChange={setClaveNueva}
             placeholder="Mínimo 4 caracteres"
           />
         </div>
-        <div className="flex items-end">
-          <button className="bg-slate-900 text-white rounded px-4 py-1.5 text-sm">Agregar usuario</button>
-        </div>
+        <button className="w-full bg-parroquia-900 hover:bg-parroquia-700 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors">Agregar usuario</button>
       </form>
 
       {msg && <p className="text-sm text-green-700 dark:text-green-200 bg-green-50 dark:bg-green-900/50 border border-green-200 dark:border-green-700 rounded p-2">{msg}</p>}
