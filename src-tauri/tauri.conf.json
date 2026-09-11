@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Secretaría Iglesia",
+        "title": "Secretaría",
         "width": 1150,
         "height": 780,
         "minWidth": 900,

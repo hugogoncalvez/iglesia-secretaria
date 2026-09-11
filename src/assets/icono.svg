@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640">
+  <!-- Icono de la app: imagen central del sello en negro sobre amarillo clarito -->
+  <rect width="640" height="640" fill="#FBF0D2" />
+  <g transform="translate(45,-52) scale(1.11)">
+    <!-- Ráfaga de Rayos / Destellos del Manto -->
+    <g fill="#000000">
+      <polygon points="250,110 244,165 250,158 256,165" />
+      <polygon points="250,110 247,135 250,130 253,135" />
+      <polygon points="210,120 212,172 216,166 221,171" transform="rotate(-15 210 120)" />
+      <polygon points="172,142 183,190 186,183 192,187" transform="rotate(-30 172 142)" />
+      <polygon points="140,175 160,218 162,210 169,213" transform="rotate(-45 140 175)" />
+      <polygon points="118,218 148,252 148,244 156,246" transform="rotate(-60 118 218)" />
+      <polygon points="105,268 143,290 141,282 149,282" transform="rotate(-75 105 268)" />
+      <polygon points="100,320 142,328 139,320 147,318" transform="rotate(-90 100 320)" />
+      <polygon points="290,120 288,172 284,166 279,171" transform="rotate(15 290 120)" />
+      <polygon points="328,142 317,190 314,183 308,187" transform="rotate(30 328 142)" />
+      <polygon points="360,175 340,218 338,210 331,213" transform="rotate(45 360 175)" />
+      <polygon points="382,218 352,252 352,244 344,246" transform="rotate(60 382 218)" />
+      <polygon points="395,268 357,290 359,282 351,282" transform="rotate(75 395 268)" />
+      <polygon points="400,320 358,328 361,320 353,318" transform="rotate(90 400 320)" />
+    </g>
+    <!-- Virgen con el Niño -->
+    <g fill="#000000">
+      <path d="M 210 205 L 205 190 L 217 197 L 222 185 L 227 197 L 239 190 L 234 205 Z" />
+      <path d="M 252 235 L 250 222 L 258 227 L 263 218 L 267 227 L 275 222 L 271 235 Z" />
+      <path d="M 210 210 C 190 240 180 290 170 330 C 160 370 170 420 166 515 C 172 520 185 430 200 380 C 205 360 215 320 225 290 C 215 280 200 270 210 210 Z" />
+      <path d="M 232 212 C 245 225 250 250 245 280 C 235 320 220 350 210 400 C 200 450 195 490 190 540 C 200 540 215 470 230 420 C 245 370 260 300 250 250 C 245 230 238 218 232 212 Z" />
+      <path d="M 255 240 C 270 250 295 280 325 325 C 330 332 305 328 290 320 C 270 305 260 280 255 240 Z" />
+      <path d="M 240 330 C 255 350 265 400 255 450 C 250 480 240 520 235 550 C 245 545 265 480 270 440 C 278 390 265 340 240 330 Z" />
+      <path d="M 268 340 C 285 360 305 420 310 470 C 313 500 305 525 295 540 C 302 530 318 490 315 450 C 310 400 290 355 268 340 Z" />
+      <polygon points="225,330 160,385 162,390 227,335" />
+    </g>
+    <!-- Luna Creciente Base + Estrella -->
+    <g fill="#000000">
+      <path d="M 96 475 C 200 560 300 560 370 500 C 280 525 180 525 96 475 Z" />
+      <polygon points="380,480 384,490 395,494 384,498 380,508 376,498 365,494 376,490" />
+    </g>
+  </g>
+</svg>
