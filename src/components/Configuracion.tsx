@@ -143,7 +143,7 @@ export default function Configuracion() {
           <button
             onClick={elegir}
             disabled={eligiendo}
-            className="border border-slate-300 dark:border-slate-500 rounded-lg px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
+            className="bg-parroquia-900 hover:bg-parroquia-700 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50"
           >
             {eligiendo ? "Leyendo…" : "Elegir copia…"}
           </button>
