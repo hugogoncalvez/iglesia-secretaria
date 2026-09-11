@@ -117,6 +117,7 @@ export default function Configuracion() {
         <button className="bg-parroquia-900 hover:bg-parroquia-700 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors">Guardar</button>
       </form>
 
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
       <div className="bg-white dark:bg-noche-700 dark:text-slate-100 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 space-y-3">
         <h3 className="font-display font-bold">Resguardo de datos</h3>
         <p className="text-xs text-slate-500 dark:text-slate-300">
@@ -172,6 +173,7 @@ export default function Configuracion() {
           </div>
         )}
         {restErr && <p className="text-sm text-red-700 dark:text-red-200 bg-red-50 dark:bg-red-900/50 border border-red-200 dark:border-red-700 rounded p-2">{restErr}</p>}
+        </div>
       </div>
     </div>
   );
