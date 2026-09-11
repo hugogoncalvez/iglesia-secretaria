@@ -53,9 +53,6 @@ export default function Login({ onOk, esPrimerArranque }: { onOk: (u: string) =>
           <div className="md:hidden text-center">
             <img src={logoUrl} alt="Sello parroquial" className="w-20 mx-auto" />
           </div>
-          <div>
-            <h2 className="font-display text-2xl font-bold text-slate-800 dark:text-slate-100">Ingresar</h2>
-          </div>
           {esPrimerArranque && (
             <p className="text-xs bg-amber-50 dark:bg-amber-900/40 border border-amber-200 dark:border-amber-700 text-amber-800 dark:text-amber-100 rounded-lg p-3">
               Primer arranque: usuario <b>admin</b> / clave <b>admin123</b>. El sistema te va a pedir cambiarla.
