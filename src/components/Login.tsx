@@ -55,9 +55,6 @@ export default function Login({ onOk, esPrimerArranque }: { onOk: (u: string) =>
           </div>
           <div>
             <h2 className="font-display text-2xl font-bold text-slate-800 dark:text-slate-100">Ingresar</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-300">
-              Acceso local — los datos quedan en esta PC
-            </p>
           </div>
           {esPrimerArranque && (
             <p className="text-xs bg-amber-50 dark:bg-amber-900/40 border border-amber-200 dark:border-amber-700 text-amber-800 dark:text-amber-100 rounded-lg p-3">
