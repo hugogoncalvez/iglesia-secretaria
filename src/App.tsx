@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
+import { LogOut } from "lucide-react";
 import Login from "./components/Login";
 import Sacramentos from "./components/Sacramentos";
 import Usuarios from "./components/Usuarios";
 import Configuracion from "./components/Configuracion";
 import CambioClaveObligatorio from "./components/CambioClaveObligatorio";
-import logoUrl from "./assets/logo.svg";
+import Sidebar, { type Vista } from "./components/Sidebar";
 import { initDb, getMode } from "./lib/db";
 import {
   ensureDefaultUser,
@@ -14,13 +15,22 @@ import {
   adminConClaveDefecto,
 } from "./lib/auth";
 
+const TITULOS: Record<Vista, string> = {
+  actas: "Actas",
+  usuarios: "Usuarios",
+  config: "Configuración",
+};
+
 export default function App() {
   const [lista, setLista] = useState(false);
   const [usuario, setUsuario] = useState<string | null>(null);
   const [primerArranque, setPrimerArranque] = useState(false);
-  const [vista, setVista] = useState<"actas" | "usuarios" | "config">("actas");
+  const [vista, setVista] = useState<Vista>("actas");
   const [debeCambiarClave, setDebeCambiarClave] = useState(false);
   const [avisoAdmin, setAvisoAdmin] = useState(false);
+  const [colapsada, setColapsada] = useState(
+    () => localStorage.getItem("iglesia_sidebar") === "colapsada"
+  );
 
   async function entrar(u: string) {
     setUsuario(u);
@@ -30,6 +40,13 @@ export default function App() {
 
   async function recheckAviso() {
     setAvisoAdmin(await adminConClaveDefecto());
+  }
+
+  function toggleSidebar() {
+    setColapsada((c) => {
+      localStorage.setItem("iglesia_sidebar", c ? "expandida" : "colapsada");
+      return !c;
+    });
   }
 
   useEffect(() => {
@@ -76,67 +93,51 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-parroquia-50 dark:bg-noche-800">
-      <header className="no-print bg-slate-50 dark:bg-slate-700 border-b dark:border-slate-600 px-4 py-3 flex items-center gap-3">
-        <img src={logoUrl} alt="Sello parroquial" className="w-10 h-14 object-contain" />
-        <div className="flex-1">
-          <h1 className="font-display font-bold text-slate-800 dark:text-slate-100">Secretaría · María Auxiliadora</h1>
-          <p className="text-xs text-slate-500 dark:text-slate-300">
-            {usuario} · {getMode() === "sqlite" ? "Base local SQLite" : "Modo web temporal (en Tauri usa SQLite)"}
-          </p>
-        </div>
-        <nav className="flex gap-1 text-sm">
-          <button
-            onClick={() => setVista("actas")}
-            className={`rounded px-3 py-1.5 ${vista === "actas" ? "bg-slate-900 text-white" : "border dark:border-slate-500 dark:text-slate-200"}`}
-          >
-            Actas
-          </button>
-          <button
-            onClick={() => setVista("usuarios")}
-            className={`rounded px-3 py-1.5 ${vista === "usuarios" ? "bg-slate-900 text-white" : "border dark:border-slate-500 dark:text-slate-200"}`}
-          >
-            Usuarios
-          </button>
-          <button
-            onClick={() => setVista("config")}
-            className={`rounded px-3 py-1.5 ${vista === "config" ? "bg-slate-900 text-white" : "border dark:border-slate-500 dark:text-slate-200"}`}
-          >
-            Config
-          </button>
-        </nav>
-        <button
-          onClick={() => {
-            clearSession();
-            setUsuario(null);
-            setDebeCambiarClave(false);
-          }}
-          className="text-sm border dark:border-slate-500 dark:text-slate-200 rounded px-3 py-1.5"
-        >
-          Salir
-        </button>
-      </header>
+    <div className="min-h-screen bg-parroquia-50 dark:bg-noche-800 flex">
+      <Sidebar vista={vista} onVista={setVista} colapsada={colapsada} onToggle={toggleSidebar} />
 
-      {avisoAdmin && (
-        <div className="no-print bg-amber-50 dark:bg-amber-900/40 border-b border-amber-200 dark:border-amber-700 px-4 py-2 text-sm text-amber-900 dark:text-amber-100 flex items-center gap-3">
-          <p className="flex-1">
-            El usuario provisorio <b>admin</b> sigue con la clave de fábrica. Creá el usuario real y eliminalo.
-          </p>
-          <button onClick={() => setVista("usuarios")} className="underline font-medium">
-            Ir a Usuarios
+      <div className="flex-1 flex flex-col min-w-0">
+        <header className="no-print bg-white dark:bg-noche-700 border-b border-slate-200 dark:border-slate-700 px-4 h-16 flex items-center gap-3 shrink-0">
+          <div className="flex-1">
+            <h1 className="font-display font-bold text-lg text-slate-800 dark:text-slate-100">{TITULOS[vista]}</h1>
+            <p className="text-xs text-slate-500 dark:text-slate-300">
+              {usuario} · {getMode() === "sqlite" ? "Base local SQLite" : "Modo web temporal (en Tauri usa SQLite)"}
+            </p>
+          </div>
+          <button
+            title="Salir"
+            onClick={() => {
+              clearSession();
+              setUsuario(null);
+              setDebeCambiarClave(false);
+            }}
+            className="p-2 rounded-lg border border-slate-300 dark:border-slate-500 text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+          >
+            <LogOut size={17} />
           </button>
-        </div>
-      )}
+        </header>
 
-      <main className="no-print max-w-5xl mx-auto p-4 animate-fade-in">
-        {vista === "actas" ? (
-          <Sacramentos />
-        ) : vista === "usuarios" ? (
-          <Usuarios actual={usuario} onChange={recheckAviso} />
-        ) : (
-          <Configuracion />
+        {avisoAdmin && (
+          <div className="no-print bg-amber-50 dark:bg-amber-900/40 border-b border-amber-200 dark:border-amber-700 px-4 py-2 text-sm text-amber-900 dark:text-amber-100 flex items-center gap-3">
+            <p className="flex-1">
+              El usuario provisorio <b>admin</b> sigue con la clave de fábrica. Creá el usuario real y eliminalo.
+            </p>
+            <button onClick={() => setVista("usuarios")} className="underline font-medium">
+              Ir a Usuarios
+            </button>
+          </div>
         )}
-      </main>
+
+        <main className="no-print max-w-5xl w-full mx-auto p-4 animate-fade-in" key={vista}>
+          {vista === "actas" ? (
+            <Sacramentos />
+          ) : vista === "usuarios" ? (
+            <Usuarios actual={usuario} onChange={recheckAviso} />
+          ) : (
+            <Configuracion />
+          )}
+        </main>
+      </div>
     </div>
   );
 }
