@@ -48,7 +48,7 @@ export default function App() {
 
   if (!lista) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-200 dark:bg-slate-800">
+      <div className="min-h-screen flex items-center justify-center bg-parroquia-50 dark:bg-noche-800">
         <p className="text-sm text-slate-500 dark:text-slate-300">Iniciando base local…</p>
       </div>
     );
@@ -76,7 +76,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-200 dark:bg-slate-800">
+    <div className="min-h-screen bg-parroquia-50 dark:bg-noche-800">
       <header className="no-print bg-slate-50 dark:bg-slate-700 border-b dark:border-slate-600 px-4 py-3 flex items-center gap-3">
         <img src={logoUrl} alt="Sello parroquial" className="w-10 h-14 object-contain" />
         <div className="flex-1">

@@ -6,8 +6,21 @@
   /* Serif con carácter eclesial/documental (fuentes del sistema: funciona sin internet) */
   --font-display: Georgia, "Times New Roman", serif;
 
+  /* Paleta parroquial */
+  --color-parroquia-900: #1c3557;
+  --color-parroquia-700: #2c5282;
+  --color-parroquia-100: #ebf1f8;
+  --color-parroquia-50: #f7f4ef;
+  --color-dorado-600: #b5935a;
+  --color-dorado-400: #d4a85a;
+  --color-dorado-100: #f5ecd9;
+  --color-noche-800: #1a1f2e;
+  --color-noche-700: #1e2433;
+  --color-noche-600: #1e2a3a;
+
   --animate-modal-in: modal-in 0.18s ease-out;
   --animate-fade-in: fade-in 0.25s ease-out;
+  --animate-drawer-in: drawer-in 0.22s ease-out;
 
   @keyframes modal-in {
     from {
@@ -28,6 +41,17 @@
       opacity: 1;
     }
   }
+
+  @keyframes drawer-in {
+    from {
+      opacity: 0;
+      transform: translateX(24px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
 }
 
 html.dark {
@@ -36,7 +60,7 @@ html.dark {
 
 @layer base {
   body {
-    @apply bg-slate-200 text-slate-900 antialiased dark:bg-slate-800 dark:text-slate-100;
+    @apply bg-parroquia-50 text-slate-900 antialiased dark:bg-noche-800 dark:text-slate-100;
   }
 
   input,

@@ -27,7 +27,7 @@ export default function Login({ onOk, esPrimerArranque }: { onOk: (u: string) =>
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-200 dark:bg-slate-800 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-parroquia-50 dark:bg-noche-800 p-4">
       <form onSubmit={entrar} className="w-full max-w-sm bg-slate-50 dark:bg-slate-700 dark:text-slate-100 rounded-xl shadow-lg p-6 space-y-4 animate-modal-in">
         <div className="text-center">
           <img src={logoUrl} alt="Sello parroquial" className="w-20 h-28 object-contain mx-auto" />

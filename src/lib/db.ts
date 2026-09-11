@@ -740,6 +740,30 @@ export async function eliminarActa(id: number): Promise<void> {
   lsWrite(LS_PERSONAS, lsRead<Persona>(LS_PERSONAS).filter((p) => usados.has(p.id ?? -1)));
 }
 
+/** Cantidad de actas por sacramento (panel resumen). */
+export async function contarActas(): Promise<Record<TipoSacramento, number>> {
+  const base: Record<TipoSacramento, number> = {
+    BAUTISMO: 0,
+    COMUNION: 0,
+    CONFIRMACION: 0,
+    MATRIMONIO: 0,
+  };
+  await initDb();
+  if (mode === "sqlite" && db) {
+    const rows = await db.select<{ tipo: string; n: number }[]>(
+      "SELECT tipo, COUNT(*) AS n FROM sacramentos GROUP BY tipo"
+    );
+    for (const r of rows) {
+      if (r.tipo in base) base[r.tipo as TipoSacramento] = r.n;
+    }
+    return base;
+  }
+  for (const a of lsRead<{ tipo: TipoSacramento }>(LS_ACTAS)) {
+    if (a.tipo in base) base[a.tipo]++;
+  }
+  return base;
+}
+
 // Expuestos para el módulo de auth (misma conexión)
 export async function sqlSelect<T>(sql: string, params?: unknown[]): Promise<T> {
   await initDb();

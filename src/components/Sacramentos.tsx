@@ -1,5 +1,5 @@
 import { useEffect, useId, useState } from "react";
-import { Eye, FileText, Pencil, SearchX, Trash2 } from "lucide-react";
+import { Eye, FileText, Pencil, SearchX, Trash2, X } from "lucide-react";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import {
   CON_CERTIFICADO,
@@ -7,6 +7,7 @@ import {
   SACRAMENTO_VACIO,
   TIPOS_SACRAMENTO,
   actualizarActa,
+  contarActas,
   crearActa,
   docActa,
   eliminarActa,
@@ -25,8 +26,16 @@ import {
 import { CertificadoDoc, CertificadoPrintable } from "./Certificado";
 import { selloPng } from "../lib/sello";
 import { sembrarDemo } from "../lib/demo";
+import { ToastHost, useToasts } from "./Toasts";
 
-const inputCls = "mt-1 w-full border rounded px-2 py-1.5 bg-slate-50 dark:bg-slate-700 dark:border-slate-500 dark:text-slate-100";
+const ETIQUETAS_RESUMEN: { tipo: TipoSacramento; label: string; punto: string }[] = [
+  { tipo: "BAUTISMO", label: "Bautismos", punto: "bg-[#1D4ED8]" },
+  { tipo: "COMUNION", label: "Comuniones", punto: "bg-[#065F46]" },
+  { tipo: "CONFIRMACION", label: "Confirmaciones", punto: "bg-[#5B21B6]" },
+  { tipo: "MATRIMONIO", label: "Matrimonios", punto: "bg-[#9D174D]" },
+];
+
+const inputCls = "mt-1 w-full border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1.5 bg-parroquia-100 dark:bg-noche-600 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-parroquia-700 focus:border-transparent transition-colors";
 
 function Campo({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -189,7 +198,13 @@ export default function Sacramentos() {
   const [imprimiendo, setImprimiendo] = useState<ActaDetalle | null>(null);
   const [cfg, setCfg] = useState<ParishConfig>(DEFAULT_PARISH);
   const [sello, setSello] = useState<string | null>(null);
-  const [demoMsg, setDemoMsg] = useState("");
+  const [conteo, setConteo] = useState<Record<TipoSacramento, number>>({
+    BAUTISMO: 0,
+    COMUNION: 0,
+    CONFIRMACION: 0,
+    MATRIMONIO: 0,
+  });
+  const { items:avisos, push:avisar } = useToasts();
 
   async function recargar(f: FiltrosActas) {
     setCargando(true);
@@ -200,8 +215,17 @@ export default function Sacramentos() {
     }
   }
 
+  async function cargarConteo() {
+    try {
+      setConteo(await contarActas());
+    } catch {
+      /* el panel queda en ceros */
+    }
+  }
+
   useEffect(() => {
     recargar({ texto: "", tipo: "TODOS", fecha: "" });
+    cargarConteo();
     getConfig().then(setCfg).catch(() => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -246,10 +270,13 @@ export default function Sacramentos() {
         throw new Error("Cargá apellido y nombres.");
       }
       if (!form.fecha_sacramento) throw new Error("Cargá la fecha del sacramento.");
+      const eraEdicion = editId !== null;
       if (editId) await actualizarActa(editId, form);
       else await crearActa(form);
       setFormAbierto(false);
       recargar(filtros);
+      cargarConteo();
+      avisar(eraEdicion ? "Acta actualizada." : "Acta guardada.");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Ocurrió un error.");
     }
@@ -259,6 +286,8 @@ export default function Sacramentos() {
     if (!confirm(`¿Eliminar el acta de "${nombreActa(r)}"?`)) return;
     await eliminarActa(r.id);
     recargar(filtros);
+    cargarConteo();
+    avisar("Acta eliminada.");
   }
 
   async function ver(id: number) {
@@ -274,13 +303,13 @@ export default function Sacramentos() {
   }
 
   async function cargarDemo() {
-    setDemoMsg("");
     try {
       const n = await sembrarDemo();
-      setDemoMsg(`Se cargaron ${n} actas de prueba (una por sacramento).`);
       recargar({ texto: "", tipo: "TODOS", fecha: "" });
+      cargarConteo();
+      avisar(`Se cargaron ${n} actas de prueba.`);
     } catch (e) {
-      setDemoMsg(e instanceof Error ? e.message : "No se pudo cargar la demo.");
+      avisar(e instanceof Error ? e.message : "No se pudo cargar la demo.", "error");
     }
   }
 
@@ -291,15 +320,15 @@ export default function Sacramentos() {
   return (
     <div className="space-y-3">
       {/* Búsqueda */}
-      <div className="bg-slate-50 dark:bg-slate-700 dark:text-slate-100 rounded-xl shadow p-3 grid grid-cols-1 md:grid-cols-4 gap-2">
+      <div className="bg-white dark:bg-noche-700 dark:text-slate-100 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-3 grid grid-cols-1 md:grid-cols-4 gap-2">
         <input
-          className="border rounded px-3 py-2 md:col-span-2 bg-slate-50 dark:bg-slate-700 dark:border-slate-500 dark:text-slate-100"
+          className="border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 md:col-span-2 bg-parroquia-100 dark:bg-noche-600 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-parroquia-700"
           placeholder="Buscar por apellido, nombre o DNI…"
           value={filtros.texto}
           onChange={(e) => setFiltros({ ...filtros, texto: e.target.value })}
         />
         <select
-          className="border rounded px-2 py-2 bg-slate-50 dark:bg-slate-700 dark:border-slate-500 dark:text-slate-100"
+          className="border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-2 bg-parroquia-100 dark:bg-noche-600 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-parroquia-700"
           value={filtros.tipo}
           onChange={(e) => setFiltros({ ...filtros, tipo: e.target.value as FiltrosActas["tipo"] })}
         >
@@ -310,16 +339,41 @@ export default function Sacramentos() {
           <input
             type="date"
             title="Fecha del sacramento"
-            className="border rounded px-2 py-2 flex-1 bg-slate-50 dark:bg-slate-700 dark:border-slate-500 dark:text-slate-100"
+            className="border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-2 flex-1 bg-parroquia-100 dark:bg-noche-600 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-parroquia-700"
             value={filtros.fecha}
             onChange={(e) => setFiltros({ ...filtros, fecha: e.target.value })}
           />
-          <button onClick={abrirNuevo} className="text-sm bg-slate-900 text-white rounded px-3 py-1.5 whitespace-nowrap">+ Acta</button>
+          <button onClick={abrirNuevo} className="text-sm bg-parroquia-900 hover:bg-parroquia-700 text-white rounded-lg px-4 py-2 whitespace-nowrap transition-colors font-medium">+ Acta</button>
         </div>
       </div>
 
+      {/* Resumen */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        {ETIQUETAS_RESUMEN.map(({ tipo, label, punto }) => {
+          const activo = filtros.tipo === tipo;
+          return (
+            <button
+              key={tipo}
+              onClick={() => setFiltros({ ...filtros, tipo: activo ? "TODOS" : tipo })}
+              title={activo ? "Quitar filtro" : `Filtrar por ${label.toLowerCase()}`}
+              className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm shadow-sm transition-colors text-left ${
+                activo
+                  ? "border-parroquia-700 ring-2 ring-parroquia-700 bg-white dark:bg-noche-700"
+                  : "border-slate-200 dark:border-slate-700 bg-white dark:bg-noche-700 hover:border-parroquia-700"
+              }`}
+            >
+              <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${punto}`} />
+              <span className="font-display text-xl font-bold text-parroquia-900 dark:text-slate-100 tabular-nums">
+                {conteo[tipo]}
+              </span>
+              <span className="text-slate-500 dark:text-slate-300">{label}</span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* Listado */}
-      <div className="bg-slate-50 dark:bg-slate-700 dark:text-slate-100 rounded-xl shadow overflow-hidden">
+      <div className="bg-white dark:bg-noche-700 dark:text-slate-100 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
         {cargando ? (
           <p className="p-4 text-sm text-slate-500 dark:text-slate-300">Cargando…</p>
         ) : filas.length === 0 ? (
@@ -331,12 +385,11 @@ export default function Sacramentos() {
                 Cargar datos de prueba (4 actas)
               </button>
             )}
-            {demoMsg && <p className="text-sm text-slate-600 dark:text-slate-300">{demoMsg}</p>}
           </div>
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-slate-100 dark:bg-slate-600 text-xs uppercase tracking-wide text-slate-500 dark:text-slate-300">
+              <tr className="bg-parroquia-100 dark:bg-noche-600 text-xs uppercase tracking-wide text-parroquia-900 dark:text-slate-300">
                 <th className="px-4 py-3 text-left font-semibold">Persona(s)</th>
                 <th className="px-4 py-3 text-left font-semibold">Sacramento</th>
                 <th className="px-4 py-3 text-left font-semibold">Fecha</th>
@@ -356,10 +409,10 @@ export default function Sacramentos() {
                   </td>
                   <td className="px-4 py-3">
                     <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${
-                      r.tipo === "BAUTISMO"      ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300" :
-                      r.tipo === "COMUNION"      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" :
-                      r.tipo === "CONFIRMACION"  ? "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300" :
-                      r.tipo === "MATRIMONIO"    ? "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300" :
+                      r.tipo === "BAUTISMO"      ? "bg-[#DBEAFE] text-[#1D4ED8] dark:bg-blue-900/40 dark:text-blue-300" :
+                      r.tipo === "COMUNION"      ? "bg-[#D1FAE5] text-[#065F46] dark:bg-emerald-900/40 dark:text-emerald-300" :
+                      r.tipo === "CONFIRMACION"  ? "bg-[#EDE9FE] text-[#5B21B6] dark:bg-violet-900/40 dark:text-violet-300" :
+                      r.tipo === "MATRIMONIO"    ? "bg-[#FCE7F3] text-[#9D174D] dark:bg-rose-900/40 dark:text-rose-300" :
                       "bg-slate-100 text-slate-600"
                     }`}>
                       {r.tipo}
@@ -384,7 +437,7 @@ export default function Sacramentos() {
                         <button
                           title="Certificado"
                           onClick={() => certificado(r.id)}
-                          className="p-1.5 rounded hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 transition-colors"
+                          className="p-1.5 rounded hover:bg-dorado-100 dark:hover:bg-yellow-900/30 text-dorado-600 dark:text-dorado-400 transition-colors"
                         >
                           <FileText size={15} />
                         </button>
@@ -412,11 +465,25 @@ export default function Sacramentos() {
         )}
       </div>
 
-      {/* Formulario adaptativo */}
+      {/* Formulario en drawer lateral */}
       {formAbierto && (
-        <div className="no-print fixed inset-0 bg-black/40 flex items-start justify-center p-4 overflow-auto">
-          <form onSubmit={guardar} className="bg-slate-50 dark:bg-slate-700 dark:text-slate-100 rounded-xl shadow max-w-3xl w-full p-4 space-y-4 my-6 animate-modal-in">
-            <h3 className="font-display font-bold text-lg">{editId ? "Editar acta" : "Nueva acta"}</h3>
+        <div className="no-print fixed inset-0 z-40 bg-black/40" onClick={() => setFormAbierto(false)}>
+          <form
+            onSubmit={guardar}
+            onClick={(e) => e.stopPropagation()}
+            className="absolute right-0 top-0 h-full w-full max-w-2xl overflow-y-auto bg-white dark:bg-noche-700 dark:text-slate-100 shadow-xl border-l border-slate-200 dark:border-slate-700 p-4 space-y-4 animate-drawer-in"
+          >
+            <div className="flex items-center gap-2 sticky top-0 bg-white dark:bg-noche-700 pb-2">
+              <h3 className="font-display font-bold text-lg flex-1">{editId ? "Editar acta" : "Nueva acta"}</h3>
+              <button
+                type="button"
+                title="Cerrar"
+                onClick={() => setFormAbierto(false)}
+                className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-300 transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
 
             <Campo label="Sacramento">
               <select
@@ -532,8 +599,8 @@ export default function Sacramentos() {
 
             {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
             <div className="flex gap-2">
-              <button className="bg-slate-900 text-white rounded px-4 py-1.5 text-sm">{editId ? "Guardar cambios" : "Guardar acta"}</button>
-              <button type="button" className="border dark:border-slate-500 rounded px-4 py-1.5 text-sm" onClick={() => setFormAbierto(false)}>Cancelar</button>
+              <button className="bg-parroquia-900 hover:bg-parroquia-700 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors">{editId ? "Guardar cambios" : "Guardar acta"}</button>
+              <button type="button" className="border border-slate-300 dark:border-slate-500 rounded-lg px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors" onClick={() => setFormAbierto(false)}>Cancelar</button>
             </div>
           </form>
         </div>
@@ -551,19 +618,19 @@ export default function Sacramentos() {
       {/* Certificado */}
       {imprimiendo && (CON_CERTIFICADO as string[]).includes(imprimiendo.tipo) && (
         <div className="no-print fixed inset-0 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-slate-50 dark:bg-slate-700 dark:text-slate-100 rounded-xl shadow max-w-2xl w-full p-4 space-y-3 max-h-[90vh] overflow-auto animate-modal-in">
+          <div className="bg-white dark:bg-noche-700 dark:text-slate-100 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 max-w-2xl w-full p-4 space-y-3 max-h-[90vh] overflow-auto animate-modal-in">
             <h3 className="font-display font-bold text-lg">Certificado — {imprimiendo.persona.apellido_nombres}</h3>
             <CertificadoPrintable a={imprimiendo} cfg={cfg} />
             <div className="flex flex-wrap gap-2">
-              <button className="bg-slate-900 text-white rounded px-4 py-1.5 text-sm" onClick={() => window.print()}>Imprimir</button>
+              <button className="bg-parroquia-900 hover:bg-parroquia-700 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors" onClick={() => window.print()}>Imprimir</button>
               <PDFDownloadLink
                 document={<CertificadoDoc a={imprimiendo} cfg={cfg} sello={sello} />}
                 fileName={`certificado-${imprimiendo.tipo.toLowerCase()}-${imprimiendo.id}.pdf`}
-                className="border dark:border-slate-500 rounded px-4 py-1.5 text-sm"
+                className="border border-slate-300 dark:border-slate-500 rounded-lg px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
               >
                 {({ loading }) => (loading ? "Generando PDF…" : "Descargar PDF")}
               </PDFDownloadLink>
-              <button className="border dark:border-slate-500 rounded px-4 py-1.5 text-sm" onClick={() => setImprimiendo(null)}>Cerrar</button>
+              <button className="border border-slate-300 dark:border-slate-500 rounded-lg px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors" onClick={() => setImprimiendo(null)}>Cerrar</button>
             </div>
           </div>
         </div>
@@ -572,6 +639,7 @@ export default function Sacramentos() {
       <div className="hidden print:block">
         {imprimiendo && <CertificadoPrintable a={imprimiendo} cfg={cfg} />}
       </div>
+      <ToastHost items={avisos} />
     </div>
   );
 }
@@ -616,7 +684,7 @@ function DetalleModal({ a, onClose, onCertificado }: { a: ActaDetalle; onClose: 
 
   return (
     <div className="no-print fixed inset-0 bg-black/40 flex items-start justify-center p-4 overflow-auto">
-      <div className="bg-slate-50 dark:bg-slate-700 dark:text-slate-100 rounded-xl shadow max-w-2xl w-full p-4 space-y-3 my-6 animate-modal-in">
+      <div className="bg-white dark:bg-noche-700 dark:text-slate-100 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 max-w-2xl w-full p-4 space-y-3 my-6 animate-modal-in">
         <h3 className="font-display font-bold text-lg">Acta de {a.tipo} — Libro {a.libro || "—"}, Folio {a.folio || "—"}</h3>
         {personas.map(([titulo, p]) => (
           <div key={titulo} className="border dark:border-slate-500 rounded-lg p-3 text-sm grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1">
@@ -635,9 +703,9 @@ function DetalleModal({ a, onClose, onCertificado }: { a: ActaDetalle; onClose: 
         </div>
         <div className="flex gap-2">
           {(CON_CERTIFICADO as string[]).includes(a.tipo) && (
-            <button className="bg-slate-900 text-white rounded px-4 py-1.5 text-sm" onClick={onCertificado}>Certificado</button>
+            <button className="bg-parroquia-900 hover:bg-parroquia-700 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors" onClick={onCertificado}>Certificado</button>
           )}
-          <button className="border dark:border-slate-500 rounded px-4 py-1.5 text-sm" onClick={onClose}>Cerrar</button>
+          <button className="border border-slate-300 dark:border-slate-500 rounded-lg px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors" onClick={onClose}>Cerrar</button>
         </div>
       </div>
     </div>
