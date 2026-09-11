@@ -9,6 +9,7 @@ export default function ClaveInput({
   autoComplete,
   autoFocus,
   className,
+  icon,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -16,13 +17,19 @@ export default function ClaveInput({
   autoComplete?: string;
   autoFocus?: boolean;
   className?: string;
+  icon?: React.ReactNode;
 }) {
   const [visible, setVisible] = useState(false);
   return (
     <div className="relative">
+      {icon && (
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+          {icon}
+        </span>
+      )}
       <input
         type={visible ? "text" : "password"}
-        className={`${className ?? "mt-1 w-full border rounded px-3 py-2"} pr-10`}
+        className={`${className ?? "mt-1 w-full border rounded px-3 py-2"} ${icon ? "pl-10" : ""} pr-10`}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
