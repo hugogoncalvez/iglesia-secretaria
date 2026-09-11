@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { cambiarPassword } from "../lib/auth";
+import ClaveInput from "./ClaveInput";
 
 /** Pantalla bloqueante: obliga a cambiar la clave de fábrica antes de usar la app. */
 export default function CambioClaveObligatorio({
@@ -39,22 +40,20 @@ export default function CambioClaveObligatorio({
         </div>
         <div>
           <label className="text-sm font-medium">Nueva clave</label>
-          <input
-            type="password"
-            className="mt-1 w-full border rounded px-3 py-2 bg-slate-50 dark:bg-slate-700 dark:border-slate-500 dark:text-slate-100"
+          <ClaveInput
+            className="mt-1 w-full border rounded px-3 py-2 bg-white dark:bg-slate-700 dark:border-slate-500 dark:text-slate-100"
             value={nueva}
-            onChange={(e) => setNueva(e.target.value)}
+            onChange={setNueva}
             autoFocus
             autoComplete="new-password"
           />
         </div>
         <div>
           <label className="text-sm font-medium">Repetir nueva clave</label>
-          <input
-            type="password"
-            className="mt-1 w-full border rounded px-3 py-2 bg-slate-50 dark:bg-slate-700 dark:border-slate-500 dark:text-slate-100"
+          <ClaveInput
+            className="mt-1 w-full border rounded px-3 py-2 bg-white dark:bg-slate-700 dark:border-slate-500 dark:text-slate-100"
             value={repetir}
-            onChange={(e) => setRepetir(e.target.value)}
+            onChange={setRepetir}
             autoComplete="new-password"
           />
         </div>

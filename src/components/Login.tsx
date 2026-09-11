@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { validateLogin, setSession } from "../lib/auth";
 import logoUrl from "../assets/logo.svg";
+import ClaveInput from "./ClaveInput";
 
 export default function Login({ onOk, esPrimerArranque }: { onOk: (u: string) => void; esPrimerArranque: boolean }) {
   const [usuario, setUsuario] = useState("");
@@ -50,11 +51,10 @@ export default function Login({ onOk, esPrimerArranque }: { onOk: (u: string) =>
         </div>
         <div>
           <label className="text-sm font-medium">Contraseña</label>
-          <input
-            type="password"
-            className="mt-1 w-full border rounded px-3 py-2 bg-slate-50 dark:bg-slate-700 dark:border-slate-500 dark:text-slate-100"
+          <ClaveInput
+            className="mt-1 w-full border rounded px-3 py-2 bg-white dark:bg-slate-700 dark:border-slate-500 dark:text-slate-100"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={setPassword}
             autoComplete="current-password"
           />
         </div>

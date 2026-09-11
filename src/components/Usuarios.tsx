@@ -5,6 +5,7 @@ import {
   eliminarUsuario,
   listUsuarios,
 } from "../lib/auth";
+import ClaveInput from "./ClaveInput";
 
 export default function Usuarios({ actual, onChange }: { actual: string; onChange?: () => void }) {
   const [usuarios, setUsuarios] = useState<string[]>([]);
@@ -93,11 +94,10 @@ export default function Usuarios({ actual, onChange }: { actual: string; onChang
         </div>
         <div>
           <label className="text-xs font-medium">Clave inicial</label>
-          <input
-            type="password"
-            className="mt-1 w-full border rounded px-2 py-1.5 bg-slate-50 dark:bg-slate-700 dark:border-slate-500 dark:text-slate-100"
+          <ClaveInput
+            className="mt-1 w-full border rounded px-2 py-1.5 bg-white dark:bg-slate-700 dark:border-slate-500 dark:text-slate-100"
             value={claveNueva}
-            onChange={(e) => setClaveNueva(e.target.value)}
+            onChange={setClaveNueva}
             placeholder="Mínimo 4 caracteres"
           />
         </div>
@@ -126,12 +126,11 @@ export default function Usuarios({ actual, onChange }: { actual: string; onChang
                 <td className="p-2 text-right space-x-2">
                   {cambiando === u ? (
                     <span className="inline-flex gap-2 items-center">
-                      <input
-                        type="password"
-                        className="border rounded px-2 py-1 text-sm bg-slate-50 dark:bg-slate-700 dark:border-slate-500 dark:text-slate-100"
-                        placeholder="Nueva clave"
+                      <ClaveInput
+                        className="border rounded px-2 py-1 text-sm bg-white dark:bg-slate-700 dark:border-slate-500 dark:text-slate-100"
                         value={claveCambio}
-                        onChange={(e) => setClaveCambio(e.target.value)}
+                        onChange={setClaveCambio}
+                        placeholder="Nueva clave"
                       />
                       <button className="underline" onClick={() => guardarClave(u)}>Guardar</button>
                       <button className="underline text-slate-500 dark:text-slate-300" onClick={() => { setCambiando(null); setClaveCambio(""); }}>Cancelar</button>
