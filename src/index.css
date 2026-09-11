@@ -46,6 +46,12 @@ html.dark {
   color-scheme: dark;
 }
 
+/* Oculta el ojito nativo de Edge/WebView2 (ya tenemos el propio en ClaveInput) */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none;
+}
+
 @layer base {
   body {
     @apply bg-parroquia-50 text-slate-900 antialiased dark:bg-noche-800 dark:text-slate-100;
