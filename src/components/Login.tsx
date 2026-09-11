@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileText, Lock, Search, ShieldCheck, User } from "lucide-react";
+import { Lock, User } from "lucide-react";
 import { validateLogin, setSession } from "../lib/auth";
 import logoUrl from "../assets/logo.svg";
 import ClaveInput from "./ClaveInput";
@@ -33,32 +33,18 @@ export default function Login({ onOk, esPrimerArranque }: { onOk: (u: string) =>
   return (
     <div className="min-h-screen flex bg-parroquia-50 dark:bg-noche-800 animate-fade-in">
       {/* Panel institucional */}
-      <div className="hidden md:flex md:w-[35%] relative overflow-hidden bg-parroquia-900 text-white flex-col justify-between p-10">
+      <div className="hidden md:flex md:w-[35%] relative overflow-hidden bg-parroquia-900 text-white flex-col p-10">
         <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full bg-white/5" />
         <div className="absolute -bottom-16 -left-20 w-60 h-60 rounded-full bg-dorado-400/10" />
         <p className="relative text-sm tracking-widest uppercase text-slate-300">
           Secretaría Parroquial
         </p>
-        <div className="relative text-center">
+        <div className="relative flex-1 flex flex-col items-center justify-center text-center">
           <img src={logoUrl} alt="Sello parroquial" className="w-36 mx-auto drop-shadow-xl" />
           <h1 className="font-display text-3xl font-bold mt-4">María Auxiliadora</h1>
           <p className="text-sm text-slate-300 mt-1">Patrona de Garupá · Diócesis de Posadas</p>
           <div className="mx-auto w-16 h-0.5 bg-dorado-400 mt-4" />
         </div>
-        <ul className="relative space-y-3 text-sm text-slate-200">
-          <li className="flex items-center gap-3">
-            <Search size={16} className="text-dorado-400 shrink-0" />
-            Búsqueda de actas en segundos
-          </li>
-          <li className="flex items-center gap-3">
-            <FileText size={16} className="text-dorado-400 shrink-0" />
-            Certificados listos para imprimir
-          </li>
-          <li className="flex items-center gap-3">
-            <ShieldCheck size={16} className="text-dorado-400 shrink-0" />
-            Datos resguardados en la parroquia
-          </li>
-        </ul>
       </div>
 
       {/* Formulario */}
