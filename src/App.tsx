@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { LogOut } from "lucide-react";
+import { LogOut, Moon, Sun } from "lucide-react";
 import Login from "./components/Login";
 import Sacramentos from "./components/Sacramentos";
 import Usuarios from "./components/Usuarios";
@@ -14,6 +14,7 @@ import {
   tieneClaveDefecto,
   adminConClaveDefecto,
 } from "./lib/auth";
+import { aplicarTema, getTema, type Tema } from "./lib/tema";
 
 const TITULOS: Record<Vista, string> = {
   actas: "Actas",
@@ -31,6 +32,13 @@ export default function App() {
   const [colapsada, setColapsada] = useState(
     () => localStorage.getItem("iglesia_sidebar") === "colapsada"
   );
+  const [tema, setTema] = useState<Tema>(() => getTema());
+
+  function cambiarTema() {
+    const n: Tema = tema === "oscuro" ? "claro" : "oscuro";
+    setTema(n);
+    aplicarTema(n);
+  }
 
   async function entrar(u: string) {
     setUsuario(u);
@@ -104,6 +112,13 @@ export default function App() {
               {usuario} · {getMode() === "sqlite" ? "Base local SQLite" : "Modo web temporal (en Tauri usa SQLite)"}
             </p>
           </div>
+          <button
+            title={tema === "oscuro" ? "Modo claro" : "Modo oscuro"}
+            onClick={cambiarTema}
+            className="p-2 rounded-lg border border-slate-300 dark:border-slate-500 text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+          >
+            {tema === "oscuro" ? <Sun size={17} /> : <Moon size={17} />}
+          </button>
           <button
             title="Salir"
             onClick={() => {

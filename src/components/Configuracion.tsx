@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { getConfig, saveConfig, type ParishConfig } from "../lib/db";
 import { hacerBackup } from "../lib/backup";
-import { aplicarTema, getTema, type Tema } from "../lib/tema";
 
 const inputCls = "mt-1 w-full border rounded px-2 py-1.5 bg-slate-50 dark:bg-slate-700 dark:border-slate-500 dark:text-slate-100";
 
@@ -11,11 +10,9 @@ export default function Configuracion() {
   const [err, setErr] = useState("");
   const [backupMsg, setBackupMsg] = useState("");
   const [respaldando, setRespaldando] = useState(false);
-  const [tema, setTema] = useState<Tema>("claro");
 
   useEffect(() => {
     getConfig().then(setCfg);
-    setTema(getTema());
   }, []);
 
   async function guardar(e: React.FormEvent) {
@@ -45,11 +42,6 @@ export default function Configuracion() {
     }
   }
 
-  function cambiarTema(t: Tema) {
-    setTema(t);
-    aplicarTema(t);
-  }
-
   if (!cfg) return <p className="text-sm text-slate-500 dark:text-slate-300">Cargando…</p>;
 
   const set = (k: keyof ParishConfig) => (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -57,26 +49,6 @@ export default function Configuracion() {
 
   return (
     <div className="space-y-3">
-      <div className="bg-slate-50 dark:bg-slate-700 dark:text-slate-100 rounded-xl shadow p-4 space-y-3">
-        <h3 className="font-display font-bold">Apariencia</h3>
-        <div className="flex gap-2 text-sm">
-          <button
-            type="button"
-            onClick={() => cambiarTema("claro")}
-            className={`rounded px-4 py-1.5 ${tema === "claro" ? "bg-slate-900 text-white" : "border dark:border-slate-500"}`}
-          >
-            Claro
-          </button>
-          <button
-            type="button"
-            onClick={() => cambiarTema("oscuro")}
-            className={`rounded px-4 py-1.5 ${tema === "oscuro" ? "bg-slate-900 text-white" : "border dark:border-slate-500"}`}
-          >
-            Oscuro
-          </button>
-        </div>
-      </div>
-
       <form onSubmit={guardar} className="bg-slate-50 dark:bg-slate-700 dark:text-slate-100 rounded-xl shadow p-4 space-y-3">
         <h3 className="font-display font-bold">Datos de la parroquia</h3>
         <p className="text-xs text-slate-500 dark:text-slate-300">Aparecen en el membrete y la firma de los certificados.</p>
