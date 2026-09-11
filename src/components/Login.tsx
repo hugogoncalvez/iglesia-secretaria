@@ -33,7 +33,7 @@ export default function Login({ onOk, esPrimerArranque }: { onOk: (u: string) =>
   return (
     <div className="min-h-screen flex bg-parroquia-50 dark:bg-noche-800 animate-fade-in">
       {/* Panel institucional */}
-      <div className="hidden md:flex md:w-[45%] relative overflow-hidden bg-parroquia-900 text-white flex-col justify-between p-10">
+      <div className="hidden md:flex md:w-[35%] relative overflow-hidden bg-parroquia-900 text-white flex-col justify-between p-10">
         <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full bg-white/5" />
         <div className="absolute -bottom-16 -left-20 w-60 h-60 rounded-full bg-dorado-400/10" />
         <p className="relative text-sm tracking-widest uppercase text-slate-300">
