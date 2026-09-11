@@ -158,6 +158,15 @@ let initialized = false;
 const LS_PERSONAS = "iglesia_personas";
 const LS_ACTAS = "iglesia_sacramentos";
 const LS_IDS = "iglesia_ids";
+const LS_CONFIG = "iglesia_config";
+
+/** Claves de localStorage (modo web) para resguardo/restauración. */
+export const LS_KEYS = {
+  personas: LS_PERSONAS,
+  actas: LS_ACTAS,
+  ids: LS_IDS,
+  config: LS_CONFIG,
+};
 
 export function isTauri(): boolean {
   if (typeof window === "undefined") return false;
@@ -797,8 +806,6 @@ export const DEFAULT_PARISH: ParishConfig = {
   direccion: "Isolina Gallardo y Rivadavia — Barrio Centro, Garupá, Misiones",
   parroco: "",
 };
-
-const LS_CONFIG = "iglesia_config";
 
 export async function getConfig(): Promise<ParishConfig> {
   try {

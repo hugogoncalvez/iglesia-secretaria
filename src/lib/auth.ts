@@ -3,6 +3,9 @@ import { sqlSelect, sqlExecute } from "./db";
 const LS_USUARIOS = "iglesia_usuarios";
 const LS_SESSION = "iglesia_session";
 
+/** Clave de usuarios (modo web) para resguardo/restauración. */
+export const LS_USUARIOS_KEY = LS_USUARIOS;
+
 export const DEFAULT_USER = "admin";
 export const DEFAULT_PASS = "admin123";
 

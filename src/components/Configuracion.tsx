@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 import { getConfig, saveConfig, type ParishConfig } from "../lib/db";
 import { hacerBackup } from "../lib/backup";
+import {
+  aplicarRestauracion,
+  elegirCopia,
+  type DatosResguardo,
+  type ResumenCopia,
+} from "../lib/restore";
 
 const inputCls = "mt-1 w-full border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1.5 bg-parroquia-100 dark:bg-noche-600 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-parroquia-700 focus:border-transparent transition-colors";
 
@@ -10,6 +16,13 @@ export default function Configuracion() {
   const [err, setErr] = useState("");
   const [backupMsg, setBackupMsg] = useState("");
   const [respaldando, setRespaldando] = useState(false);
+  const [copia, setCopia] = useState<{
+    datos: DatosResguardo;
+    resumen: ResumenCopia;
+  } | null>(null);
+  const [eligiendo, setEligiendo] = useState(false);
+  const [restaurando, setRestaurando] = useState(false);
+  const [restErr, setRestErr] = useState("");
 
   useEffect(() => {
     getConfig().then(setCfg);
@@ -39,6 +52,31 @@ export default function Configuracion() {
       }
     } finally {
       setRespaldando(false);
+    }
+  }
+
+  async function elegir() {
+    setRestErr("");
+    setEligiendo(true);
+    try {
+      const sel = await elegirCopia();
+      if (sel) setCopia(sel);
+    } catch (e) {
+      setRestErr(e instanceof Error ? e.message : "No se pudo leer la copia.");
+    } finally {
+      setEligiendo(false);
+    }
+  }
+
+  async function restaurar() {
+    if (!copia) return;
+    setRestErr("");
+    setRestaurando(true);
+    try {
+      await aplicarRestauracion(copia.datos);
+    } catch (e) {
+      setRestErr(e instanceof Error ? e.message : "No se pudo restaurar.");
+      setRestaurando(false);
     }
   }
 
@@ -93,6 +131,47 @@ export default function Configuracion() {
           {respaldando ? "Copiando…" : "Hacer copia de seguridad"}
         </button>
         {backupMsg && <p className="text-sm text-slate-700 dark:text-slate-200 bg-parroquia-100 dark:bg-noche-600 border border-slate-200 dark:border-slate-600 rounded-lg p-2 break-all">{backupMsg}</p>}
+      </div>
+
+      <div className="bg-white dark:bg-noche-700 dark:text-slate-100 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 space-y-3">
+        <h3 className="font-display font-bold">Restaurar copia</h3>
+        <p className="text-xs text-slate-500 dark:text-slate-300">
+          Reemplaza todos los datos actuales por los de una copia de seguridad.
+        </p>
+        {!copia ? (
+          <button
+            onClick={elegir}
+            disabled={eligiendo}
+            className="border border-slate-300 dark:border-slate-500 rounded-lg px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
+          >
+            {eligiendo ? "Leyendo…" : "Elegir copia…"}
+          </button>
+        ) : (
+          <div className="rounded-lg border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/40 p-3 space-y-2 text-sm">
+            <p><b>Archivo:</b> <span className="break-all">{copia.resumen.nombre}</span></p>
+            <p>
+              {copia.resumen.actas} actas · {copia.resumen.personas} personas · {copia.resumen.usuarios} usuarios
+              {copia.resumen.fecha ? <> · {new Date(copia.resumen.fecha).toLocaleString()}</> : null}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={restaurar}
+                disabled={restaurando}
+                className="bg-red-700 hover:bg-red-800 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                {restaurando ? "Restaurando…" : "Confirmar restauración"}
+              </button>
+              <button
+                onClick={() => setCopia(null)}
+                disabled={restaurando}
+                className="border border-slate-300 dark:border-slate-500 rounded-lg px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
+        {restErr && <p className="text-sm text-red-700 dark:text-red-200 bg-red-50 dark:bg-red-900/50 border border-red-200 dark:border-red-700 rounded p-2">{restErr}</p>}
       </div>
     </div>
   );
