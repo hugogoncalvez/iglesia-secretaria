@@ -31,7 +31,7 @@ export default function Sidebar({
           <>
             <img src={logoUrl} alt="Sello parroquial" className="w-8 h-11 object-contain shrink-0" />
             <div className="flex-1 whitespace-nowrap overflow-hidden">
-              <p className="font-display font-bold leading-tight">María Auxiliadora</p>
+              <p className="font-display font-bold text-sm leading-tight truncate">María Auxiliadora</p>
               <p className="text-xs text-slate-300">Secretaría</p>
             </div>
             <button
