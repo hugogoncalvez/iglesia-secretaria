@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { getConfig, saveConfig, type ParishConfig } from "../lib/db";
 import { hacerBackup } from "../lib/backup";
 
-const inputCls = "mt-1 w-full border rounded px-2 py-1.5 bg-slate-50 dark:bg-slate-700 dark:border-slate-500 dark:text-slate-100";
+const inputCls = "mt-1 w-full border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1.5 bg-parroquia-100 dark:bg-noche-600 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-parroquia-700 focus:border-transparent transition-colors";
 
 export default function Configuracion() {
   const [cfg, setCfg] = useState<ParishConfig | null>(null);
@@ -49,7 +49,7 @@ export default function Configuracion() {
 
   return (
     <div className="space-y-3">
-      <form onSubmit={guardar} className="bg-slate-50 dark:bg-slate-700 dark:text-slate-100 rounded-xl shadow p-4 space-y-3">
+      <form onSubmit={guardar} className="bg-white dark:bg-noche-700 dark:text-slate-100 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 space-y-3">
         <h3 className="font-display font-bold">Datos de la parroquia</h3>
         <p className="text-xs text-slate-500 dark:text-slate-300">Aparecen en el membrete y la firma de los certificados.</p>
         <div>
@@ -76,10 +76,10 @@ export default function Configuracion() {
         </div>
         {msg && <p className="text-sm text-green-700 dark:text-green-200 bg-green-50 dark:bg-green-900/50 border border-green-200 dark:border-green-700 rounded p-2">{msg}</p>}
         {err && <p className="text-sm text-red-700 dark:text-red-200 bg-red-50 dark:bg-red-900/50 border border-red-200 dark:border-red-700 rounded p-2">{err}</p>}
-        <button className="bg-slate-900 text-white rounded px-4 py-1.5 text-sm">Guardar</button>
+        <button className="bg-parroquia-900 hover:bg-parroquia-700 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors">Guardar</button>
       </form>
 
-      <div className="bg-slate-50 dark:bg-slate-700 dark:text-slate-100 rounded-xl shadow p-4 space-y-3">
+      <div className="bg-white dark:bg-noche-700 dark:text-slate-100 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 space-y-3">
         <h3 className="font-display font-bold">Resguardo de datos</h3>
         <p className="text-xs text-slate-500 dark:text-slate-300">
           Copia la base de datos completa (actas, personas y usuarios) a la carpeta o pendrive que elijas.
@@ -88,11 +88,11 @@ export default function Configuracion() {
         <button
           onClick={respaldar}
           disabled={respaldando}
-          className="bg-slate-900 text-white rounded px-4 py-1.5 text-sm disabled:opacity-50"
+          className="bg-parroquia-900 hover:bg-parroquia-700 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50"
         >
           {respaldando ? "Copiando…" : "Hacer copia de seguridad"}
         </button>
-        {backupMsg && <p className="text-sm text-slate-700 dark:text-slate-200 bg-slate-200 dark:bg-slate-600 border dark:border-slate-500 rounded p-2 break-all">{backupMsg}</p>}
+        {backupMsg && <p className="text-sm text-slate-700 dark:text-slate-200 bg-parroquia-100 dark:bg-noche-600 border border-slate-200 dark:border-slate-600 rounded-lg p-2 break-all">{backupMsg}</p>}
       </div>
     </div>
   );
