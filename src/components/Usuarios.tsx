@@ -82,7 +82,7 @@ export default function Usuarios({ actual, onChange }: { actual: string; onChang
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 max-w-md mx-auto">
       <form onSubmit={agregar} className="bg-white dark:bg-noche-700 dark:text-slate-100 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 space-y-3 max-w-md">
         <h3 className="font-display font-bold">Nuevo usuario</h3>
         <div>
@@ -126,7 +126,7 @@ export default function Usuarios({ actual, onChange }: { actual: string; onChang
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-end gap-1">
                     {cambiando === u ? (
-                      <span className="inline-flex gap-2 items-center">
+                      <span className="inline-flex flex-wrap gap-2 items-center justify-end">
                         <ClaveInput
                           className="border rounded px-2 py-1 text-sm bg-white dark:bg-slate-700 dark:border-slate-500 dark:text-slate-100"
                           value={claveCambio}
