@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
 import { dumpLocalJSON, isTauri, sqlExecute } from "./db";
+import { volcarUsuarios } from "./auth";
 
 /**
  * Resguardo de datos.
@@ -13,7 +14,9 @@ export async function hacerBackup(): Promise<string> {
   const fecha = new Date().toISOString().slice(0, 10);
 
   if (!isTauri()) {
-    const json = await dumpLocalJSON();
+    const datos = JSON.parse(await dumpLocalJSON()) as Record<string, unknown>;
+    datos.usuarios = volcarUsuarios();
+    const json = JSON.stringify(datos, null, 2);
     const blob = new Blob([json], { type: "application/json;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);

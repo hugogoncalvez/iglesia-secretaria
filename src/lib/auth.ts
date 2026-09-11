@@ -12,6 +12,11 @@ interface UsuarioRow {
   hash: string;
 }
 
+/** Usuarios para incluir en el resguardo (solo modo web; en Tauri se copia el .db). */
+export function volcarUsuarios(): UsuarioRow[] {
+  return lsReadUsers();
+}
+
 function lsReadUsers(): UsuarioRow[] {
   try {
     return JSON.parse(localStorage.getItem(LS_USUARIOS) ?? "[]") as UsuarioRow[];
