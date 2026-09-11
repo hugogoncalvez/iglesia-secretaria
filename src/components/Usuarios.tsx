@@ -6,6 +6,7 @@ import {
   listUsuarios,
 } from "../lib/auth";
 import ClaveInput from "./ClaveInput";
+import { KeyRound, Trash2 } from "lucide-react";
 
 export default function Usuarios({ actual, onChange }: { actual: string; onChange?: () => void }) {
   const [usuarios, setUsuarios] = useState<string[]>([]);
@@ -109,38 +110,52 @@ export default function Usuarios({ actual, onChange }: { actual: string; onChang
       {msg && <p className="text-sm text-green-700 dark:text-green-200 bg-green-50 dark:bg-green-900/50 border border-green-200 dark:border-green-700 rounded p-2">{msg}</p>}
       {err && <p className="text-sm text-red-700 dark:text-red-200 bg-red-50 dark:bg-red-900/50 border border-red-200 dark:border-red-700 rounded p-2">{err}</p>}
 
-      <div className="bg-slate-50 dark:bg-slate-700 dark:text-slate-100 rounded-xl shadow overflow-hidden">
+      <div className="bg-white dark:bg-noche-700 dark:text-slate-100 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-slate-200 dark:bg-slate-600 text-left">
-            <tr>
-              <th className="p-2">Usuario</th>
-              <th className="p-2 text-right">Acciones</th>
+          <thead>
+            <tr className="bg-parroquia-100 dark:bg-noche-600 text-xs uppercase tracking-wide text-parroquia-900 dark:text-slate-300">
+              <th className="px-4 py-3 text-left font-semibold">Usuario</th>
+              <th className="px-4 py-3 text-right font-semibold">Acciones</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-slate-200 dark:divide-slate-600">
             {usuarios.map((u) => (
-              <tr key={u} className="border-t dark:border-slate-600">
-                <td className="p-2 font-medium">
-                  {u} {u === actual && <span className="text-xs text-slate-500 dark:text-slate-300">(vos)</span>}
+              <tr key={u} className="hover:bg-slate-100 dark:hover:bg-slate-600/50 transition-colors">
+                <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">
+                  {u} {u === actual && <span className="text-xs text-slate-400 dark:text-slate-400 font-normal">(vos)</span>}
                 </td>
-                <td className="p-2 text-right space-x-2">
-                  {cambiando === u ? (
-                    <span className="inline-flex gap-2 items-center">
-                      <ClaveInput
-                        className="border rounded px-2 py-1 text-sm bg-white dark:bg-slate-700 dark:border-slate-500 dark:text-slate-100"
-                        value={claveCambio}
-                        onChange={setClaveCambio}
-                        placeholder="Nueva clave"
-                      />
-                      <button className="underline" onClick={() => guardarClave(u)}>Guardar</button>
-                      <button className="underline text-slate-500 dark:text-slate-300" onClick={() => { setCambiando(null); setClaveCambio(""); }}>Cancelar</button>
-                    </span>
-                  ) : (
-                    <>
-                      <button className="underline" onClick={() => { setCambiando(u); setClaveCambio(""); }}>Cambiar clave</button>
-                      <button className="underline text-red-600 dark:text-red-400" onClick={() => borrar(u)}>Eliminar</button>
-                    </>
-                  )}
+                <td className="px-4 py-3">
+                  <div className="flex items-center justify-end gap-1">
+                    {cambiando === u ? (
+                      <span className="inline-flex gap-2 items-center">
+                        <ClaveInput
+                          className="border rounded px-2 py-1 text-sm bg-white dark:bg-slate-700 dark:border-slate-500 dark:text-slate-100"
+                          value={claveCambio}
+                          onChange={setClaveCambio}
+                          placeholder="Nueva clave"
+                        />
+                        <button className="underline" onClick={() => guardarClave(u)}>Guardar</button>
+                        <button className="underline text-slate-500 dark:text-slate-300" onClick={() => { setCambiando(null); setClaveCambio(""); }}>Cancelar</button>
+                      </span>
+                    ) : (
+                      <>
+                        <button
+                          title="Cambiar clave"
+                          onClick={() => { setCambiando(u); setClaveCambio(""); }}
+                          className="p-1.5 rounded hover:bg-blue-100 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400 transition-colors"
+                        >
+                          <KeyRound size={15} />
+                        </button>
+                        <button
+                          title="Eliminar"
+                          onClick={() => borrar(u)}
+                          className="p-1.5 rounded hover:bg-red-100 dark:hover:bg-red-900/40 text-red-500 dark:text-red-400 transition-colors"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
