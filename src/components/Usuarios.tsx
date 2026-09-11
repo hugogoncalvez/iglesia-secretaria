@@ -161,7 +161,6 @@ export default function Usuarios({ actual, onChange }: { actual: string; onChang
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-slate-500 dark:text-slate-300">Los usuarios y claves se guardan solo en esta PC, junto con los registros.</p>
     </div>
   );
 }
