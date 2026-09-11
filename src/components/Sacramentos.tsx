@@ -476,7 +476,7 @@ export default function Sacramentos() {
 
       {/* Formulario en modal centrado */}
       {formAbierto && (
-        <div className="no-print fixed inset-0 z-40 bg-black/40 flex items-start justify-center p-4 overflow-auto" onClick={() => setFormAbierto(false)}>
+        <div className="no-print fixed inset-y-0 right-0 left-[var(--sidebar-w,0px)] z-40 bg-black/40 flex items-start justify-center p-4 overflow-auto" onClick={() => setFormAbierto(false)}>
           <form
             onSubmit={guardar}
             onClick={(e) => e.stopPropagation()}
@@ -624,7 +624,7 @@ export default function Sacramentos() {
 
       {/* Certificado */}
       {imprimiendo && (CON_CERTIFICADO as string[]).includes(imprimiendo.tipo) && (
-        <div className="no-print fixed inset-0 bg-black/40 flex items-center justify-center p-4">
+        <div className="no-print fixed inset-y-0 right-0 left-[var(--sidebar-w,0px)] bg-black/40 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-noche-700 dark:text-slate-100 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 max-w-2xl w-full p-4 space-y-3 max-h-[90vh] overflow-auto animate-modal-in">
             <h3 className="font-display font-bold text-lg">Certificado — {imprimiendo.persona.apellido_nombres}</h3>
             <CertificadoPrintable a={imprimiendo} cfg={cfg} />
@@ -690,7 +690,7 @@ function DetalleModal({ a, onClose, onCertificado }: { a: ActaDetalle; onClose: 
   if (a.tipo === "MATRIMONIO") Filas.push(["Referencia documental", a.referencia_folios || "—"]);
 
   return (
-    <div className="no-print fixed inset-0 bg-black/40 flex items-start justify-center p-4 overflow-auto">
+    <div className="no-print fixed inset-y-0 right-0 left-[var(--sidebar-w,0px)] bg-black/40 flex items-start justify-center p-4 overflow-auto">
       <div className="bg-white dark:bg-noche-700 dark:text-slate-100 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 max-w-2xl w-full p-4 space-y-3 my-6 animate-modal-in">
         <h3 className="font-display font-bold text-lg">Acta de {a.tipo} — Libro {a.libro || "—"}, Folio {a.folio || "—"}</h3>
         {personas.map(([titulo, p]) => (
