@@ -78,12 +78,15 @@ export async function validateLogin(
 }
 
 export function setSession(usuario: string) {
-  localStorage.setItem(LS_SESSION, usuario);
+  sessionStorage.setItem(LS_SESSION, usuario);
 }
 export function getSession(): string | null {
-  return localStorage.getItem(LS_SESSION);
+  // Limpia sesiones viejas persistentes: ahora la sesión dura hasta cerrar la app
+  localStorage.removeItem(LS_SESSION);
+  return sessionStorage.getItem(LS_SESSION);
 }
 export function clearSession() {
+  sessionStorage.removeItem(LS_SESSION);
   localStorage.removeItem(LS_SESSION);
 }
 
