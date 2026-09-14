@@ -326,6 +326,13 @@ export default function Sacramentos() {
   const setF = (k: keyof SacramentoInput) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm({ ...form, [k]: e.target.value });
 
+  const totalActas = conteo.BAUTISMO + conteo.COMUNION + conteo.CONFIRMACION + conteo.MATRIMONIO;
+  const hayFiltros = filtros.texto !== "" || filtros.tipo !== "TODOS" || filtros.fecha !== "";
+
+  function limpiarFiltros() {
+    setFiltros({ texto: "", tipo: "TODOS", fecha: "" });
+  }
+
   return (
     <div className="space-y-3">
       {/* Búsqueda */}
@@ -386,15 +393,27 @@ export default function Sacramentos() {
         {cargando ? (
           <p className="p-4 text-sm text-slate-500 dark:text-slate-300">Cargando…</p>
         ) : filas.length === 0 ? (
-          <div className="p-6 space-y-3 text-center">
-            <SearchX size={28} className="mx-auto text-slate-300 dark:text-slate-500" />
-            <p className="text-sm text-slate-500 dark:text-slate-300">Sin actas. Creá la primera con “+ Acta”.</p>
-            {import.meta.env.DEV && (
-              <button onClick={cargarDemo} className="text-sm border dark:border-slate-500 rounded px-3 py-1.5">
-                Cargar datos de prueba (4 actas)
-              </button>
-            )}
-          </div>
+          totalActas === 0 ? (
+            <div className="p-6 space-y-3 text-center">
+              <SearchX size={28} className="mx-auto text-slate-300 dark:text-slate-500" />
+              <p className="text-sm text-slate-500 dark:text-slate-300">Sin actas. Creá la primera con “+ Acta”.</p>
+              {import.meta.env.DEV && (
+                <button onClick={cargarDemo} className="text-sm border dark:border-slate-500 rounded px-3 py-1.5">
+                  Cargar datos de prueba (4 actas)
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="p-6 space-y-3 text-center">
+              <SearchX size={28} className="mx-auto text-slate-300 dark:text-slate-500" />
+              <p className="text-sm text-slate-500 dark:text-slate-300">No se encontró ningún acta con esa búsqueda.</p>
+              {hayFiltros && (
+                <button onClick={limpiarFiltros} className="text-sm border dark:border-slate-500 rounded px-3 py-1.5">
+                  Limpiar filtros
+                </button>
+              )}
+            </div>
+          )
         ) : (
           <table className="w-full text-sm">
             <thead>
