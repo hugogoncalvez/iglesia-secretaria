@@ -554,9 +554,9 @@ export default function Sacramentos() {
               </Campo>
               <Campo label={
                 f.tipo === "MATRIMONIO"
-                  ? "Celebrante (Diácono / Presbítero / Obispo)"
+                  ? "Celebrante"
                   : f.tipo === "CONFIRMACION"
-                    ? "Ungido/a con el Santo Crisma por (Ministro)"
+                    ? "Ungido/a por"
                     : "Ministro / Celebrante"
               }>
                 <input className={inputCls} value={f.ministro_celebrante} onChange={setF("ministro_celebrante")} />
@@ -685,9 +685,9 @@ function DetalleModal({ a, onClose, onCertificado }: { a: ActaDetalle; onClose: 
     ["Fecha del sacramento", a.fecha_sacramento || "—"],
     [
       a.tipo === "MATRIMONIO"
-        ? "Celebrante (Diácono / Presbítero / Obispo)"
+        ? "Celebrante"
         : a.tipo === "CONFIRMACION"
-          ? "Ungido/a con el Santo Crisma por (Ministro)"
+          ? "Ungido/a por"
           : "Ministro / Celebrante",
       a.ministro_celebrante || "—",
     ],
