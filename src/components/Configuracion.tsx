@@ -179,7 +179,7 @@ export default function Configuracion() {
 
       <div className="bg-white dark:bg-noche-700 dark:text-slate-100 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 space-y-1 max-w-md">
         <h3 className="font-display font-bold">Acerca de</h3>
-        <p className="text-sm font-medium">Secretaría Iglesia</p>
+        <p className="text-sm font-medium">Scriptorium</p>
         <p className="text-xs text-slate-500 dark:text-slate-300">Versión {version}</p>
         <p className="text-xs text-slate-500 dark:text-slate-300">Desarrollador: Hugo Goncalvez</p>
         <p className="text-xs text-slate-500 dark:text-slate-300">hugogoncalvez@gmail.com</p>

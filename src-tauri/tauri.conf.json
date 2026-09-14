@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Secretaria Iglesia",
+  "productName": "Scriptorium",
   "version": "0.2.2",
   "identifier": "com.iglesia.secretaria",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Secretaría",
+        "title": "Scriptorium",
         "width": 1150,
         "height": 780,
         "minWidth": 900,

@@ -79,7 +79,7 @@ export function validarJsonResguardo(texto: string): DatosResguardo {
   }
   const o = obj as Record<string, unknown>;
   if (o.app !== "secretaria-iglesia") {
-    throw new Error("El archivo no es un resguardo de Secretaría Iglesia.");
+    throw new Error("El archivo no es un resguardo de Scriptorium.");
   }
   const arr = (k: string): Fila[] =>
     Array.isArray(o[k]) ? (o[k] as Fila[]) : [];
