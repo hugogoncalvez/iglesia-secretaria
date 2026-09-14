@@ -111,9 +111,11 @@ export default function App() {
         <header className="no-print bg-white dark:bg-noche-700 border-b border-slate-200 dark:border-slate-700 px-4 h-16 flex items-center gap-3 shrink-0">
           <div className="flex-1">
             <h1 className="font-display font-bold text-lg text-slate-800 dark:text-slate-100">{TITULOS[vista]}</h1>
-            <p className="text-xs text-slate-500 dark:text-slate-300">
-              {usuario} · {getMode() === "sqlite" ? "Base local SQLite" : "Modo web temporal (en Tauri usa SQLite)"}
-            </p>
+            {import.meta.env.DEV && (
+              <p className="text-xs text-slate-500 dark:text-slate-300">
+                {usuario} · {getMode() === "sqlite" ? "Base local SQLite" : "Modo web temporal (en Tauri usa SQLite)"}
+              </p>
+            )}
           </div>
           <button
             title={tema === "oscuro" ? "Modo claro" : "Modo oscuro"}
