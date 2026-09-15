@@ -24,6 +24,7 @@ import {
   type TipoSacramento,
 } from "../lib/db";
 import { CertificadoDoc, CertificadoPrintable } from "./Certificado";
+import { logAccion } from "../lib/auditoria";
 import { selloPng } from "../lib/sello";
 import { sembrarDemo } from "../lib/demo";
 import { ToastHost, useToasts } from "./Toasts";
@@ -186,7 +187,7 @@ function BautismoPrevio({
   );
 }
 
-export default function Sacramentos() {
+export default function Sacramentos({ actual }: { actual: string }) {
   const [filtros, setFiltros] = useState<FiltrosActas>({ texto: "", tipo: "TODOS", fecha: "" });
   const [filas, setFilas] = useState<ActaRow[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -282,6 +283,15 @@ export default function Sacramentos() {
       const eraEdicion = editId !== null;
       if (editId) await actualizarActa(editId, form);
       else await crearActa(form);
+      const titular =
+        form.tipo === "MATRIMONIO"
+          ? `${form.esposo.apellido_nombres} y ${form.esposa.apellido_nombres}`
+          : form.persona.apellido_nombres;
+      void logAccion(
+        actual,
+        eraEdicion ? "ACTA_EDITAR" : "ACTA_CREAR",
+        `${form.tipo} — ${titular} (Libro ${form.libro || "—"}, Folio ${form.folio || "—"})`
+      );
       setFormAbierto(false);
       recargar(filtros);
       cargarConteo();
@@ -294,6 +304,7 @@ export default function Sacramentos() {
   async function borrar(r: ActaRow) {
     if (!confirm(`¿Eliminar el acta de "${nombreActa(r)}"?`)) return;
     await eliminarActa(r.id);
+    void logAccion(actual, "ACTA_ELIMINAR", `${r.tipo} — ${nombreActa(r)} (Libro ${r.libro || "—"}, Folio ${r.folio || "—"})`);
     recargar(filtros);
     cargarConteo();
     avisar("Acta eliminada.");
@@ -582,23 +593,13 @@ export default function Sacramentos() {
                   />
                 </div>
               )}
-              {f.tipo === "BAUTISMO" && (
+              {(f.tipo === "BAUTISMO" || f.tipo === "MATRIMONIO") && (
                 <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-3">
                   <Campo label="Padrino">
                     <input className={inputCls} value={f.padrino} onChange={setF("padrino")} />
                   </Campo>
                   <Campo label="Madrina">
                     <input className={inputCls} value={f.madrina} onChange={setF("madrina")} />
-                  </Campo>
-                </div>
-              )}
-              {f.tipo === "MATRIMONIO" && (
-                <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <Campo label="Testigo 1 (Padrino)">
-                    <input className={inputCls} value={f.testigo_1} onChange={setF("testigo_1")} />
-                  </Campo>
-                  <Campo label="Testigo 2 (Madrina)">
-                    <input className={inputCls} value={f.testigo_2} onChange={setF("testigo_2")} />
                   </Campo>
                 </div>
               )}
@@ -701,8 +702,8 @@ function DetalleModal({ a, onClose, onCertificado }: { a: ActaDetalle; onClose: 
     Filas.push(["Bautismo de la esposa", textoBautismo(a, "esposa_baut")]);
   }
   if (a.tipo === "MATRIMONIO") {
-    Filas.push(["Testigo 1 (Padrino)", a.testigo_1 || "—"]);
-    Filas.push(["Testigo 2 (Madrina)", a.testigo_2 || "—"]);
+    Filas.push(["Padrino", a.padrino || "—"]);
+    Filas.push(["Madrina", a.madrina || "—"]);
     Filas.push(["Domicilio del matrimonio", a.domicilio_matrimonial || "—"]);
   }
   Filas.push(["Notas marginales", a.notas_marginales || "—"]);

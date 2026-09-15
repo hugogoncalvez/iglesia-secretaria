@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { cambiarPassword } from "../lib/auth";
+import { logAccion } from "../lib/auditoria";
 import ClaveInput from "./ClaveInput";
 
 /** Pantalla bloqueante: obliga a cambiar la clave de fábrica antes de usar la app. */
@@ -23,6 +24,7 @@ export default function CambioClaveObligatorio({
     }
     try {
       await cambiarPassword(usuario, nueva);
+      void logAccion(usuario, "CLAVE_CAMBIAR", `El usuario "${usuario}" definió su clave.`);
       onOk();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Ocurrió un error.");
@@ -35,7 +37,7 @@ export default function CambioClaveObligatorio({
         <div>
           <h1 className="font-display text-xl font-bold text-slate-800 dark:text-slate-100">Cambiá tu clave</h1>
           <p className="text-sm text-slate-500 dark:text-slate-300">
-            Estás usando la clave de fábrica. Por seguridad, definí una nueva para <b>{usuario}</b> antes de continuar.
+            Por seguridad, definí una nueva clave para <b>{usuario}</b> antes de continuar.
           </p>
         </div>
         <div>

@@ -4,6 +4,7 @@ import Login from "./components/Login";
 import Sacramentos from "./components/Sacramentos";
 import Usuarios from "./components/Usuarios";
 import Configuracion from "./components/Configuracion";
+import Auditoria from "./components/Auditoria";
 import CambioClaveObligatorio from "./components/CambioClaveObligatorio";
 import Sidebar, { type Vista } from "./components/Sidebar";
 import { initDb, getMode } from "./lib/db";
@@ -11,15 +12,17 @@ import {
   ensureDefaultUser,
   getSession,
   clearSession,
-  tieneClaveDefecto,
+  debeCambiarClave as debeCambiarClaveCheck,
   adminConClaveDefecto,
 } from "./lib/auth";
 import { aplicarTema, getTema, type Tema } from "./lib/tema";
+import { logAccion } from "./lib/auditoria";
 
 const TITULOS: Record<Vista, string> = {
   actas: "Actas",
   usuarios: "Usuarios",
   config: "Configuración",
+  auditoria: "Auditoría",
 };
 
 export default function App() {
@@ -42,7 +45,8 @@ export default function App() {
 
   async function entrar(u: string) {
     setUsuario(u);
-    setDebeCambiarClave(await tieneClaveDefecto(u));
+    void logAccion(u, "LOGIN_OK", "Ingreso a la app.");
+    setDebeCambiarClave(await debeCambiarClaveCheck(u));
     setAvisoAdmin(await adminConClaveDefecto());
   }
 
@@ -64,7 +68,7 @@ export default function App() {
       const s = getSession();
       if (s) {
         setUsuario(s);
-        setDebeCambiarClave(await tieneClaveDefecto(s));
+        setDebeCambiarClave(await debeCambiarClaveCheck(s));
         setAvisoAdmin(await adminConClaveDefecto());
       }
       setLista(true);
@@ -127,6 +131,7 @@ export default function App() {
           <button
             title="Salir"
             onClick={() => {
+              if (usuario) void logAccion(usuario, "LOGOUT", "Salida de la app.");
               clearSession();
               setUsuario(null);
               setDebeCambiarClave(false);
@@ -150,11 +155,13 @@ export default function App() {
 
         <main className="no-print max-w-5xl w-full mx-auto p-4 animate-fade-in" key={vista}>
           {vista === "actas" ? (
-            <Sacramentos />
+            <Sacramentos actual={usuario} />
           ) : vista === "usuarios" ? (
             <Usuarios actual={usuario} onChange={recheckAviso} />
+          ) : vista === "auditoria" ? (
+            <Auditoria />
           ) : (
-            <Configuracion />
+            <Configuracion actual={usuario} />
           )}
         </main>
       </div>

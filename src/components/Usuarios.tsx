@@ -3,13 +3,14 @@ import {
   cambiarPassword,
   crearUsuario,
   eliminarUsuario,
-  listUsuarios,
+  listUsuariosDetalle,
 } from "../lib/auth";
 import ClaveInput from "./ClaveInput";
+import { logAccion } from "../lib/auditoria";
 import { KeyRound, Trash2 } from "lucide-react";
 
 export default function Usuarios({ actual, onChange }: { actual: string; onChange?: () => void }) {
-  const [usuarios, setUsuarios] = useState<string[]>([]);
+  const [usuarios, setUsuarios] = useState<{ usuario: string; debeCambiar: boolean }[]>([]);
   const [nuevo, setNuevo] = useState("");
   const [claveNueva, setClaveNueva] = useState("");
   const [cambiando, setCambiando] = useState<string | null>(null);
@@ -18,7 +19,7 @@ export default function Usuarios({ actual, onChange }: { actual: string; onChang
   const [err, setErr] = useState("");
 
   async function recargar() {
-    setUsuarios(await listUsuarios());
+    setUsuarios(await listUsuariosDetalle());
   }
 
   useEffect(() => {
@@ -39,23 +40,30 @@ export default function Usuarios({ actual, onChange }: { actual: string; onChang
     e.preventDefault();
     try {
       await crearUsuario(nuevo, claveNueva);
+      void logAccion(actual, "USUARIO_CREAR", `Usuario "${nuevo.trim()}" creado.`);
       setNuevo("");
       setClaveNueva("");
       await recargar();
       onChange?.();
-      ok("Usuario creado.");
+      ok("Usuario creado. Deberá cambiar su clave al entrar.");
     } catch (e) {
       fail(e);
     }
   }
 
   async function guardarClave(u: string) {
+    if (u !== actual) {
+      fail("Solo podés cambiar tu propia clave.");
+      return;
+    }
     try {
       await cambiarPassword(u, claveCambio);
+      void logAccion(actual, "CLAVE_CAMBIAR", `El usuario "${u}" cambió su clave.`);
       setCambiando(null);
       setClaveCambio("");
+      await recargar();
       onChange?.();
-      ok(`Clave de "${u}" actualizada.`);
+      ok("Tu clave fue actualizada.");
     } catch (e) {
       fail(e);
     }
@@ -73,6 +81,7 @@ export default function Usuarios({ actual, onChange }: { actual: string; onChang
     if (!confirm(`¿Eliminar el usuario "${u}"?`)) return;
     try {
       await eliminarUsuario(u);
+      void logAccion(actual, "USUARIO_ELIMINAR", `Usuario "${u}" eliminado.`);
       await recargar();
       onChange?.();
       ok("Usuario eliminado.");
@@ -102,6 +111,7 @@ export default function Usuarios({ actual, onChange }: { actual: string; onChang
             onChange={setClaveNueva}
             placeholder="Mínimo 4 caracteres"
           />
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">El usuario deberá cambiarla al entrar por primera vez.</p>
         </div>
         <button className="w-full bg-parroquia-900 hover:bg-parroquia-700 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors">Agregar usuario</button>
       </form>
@@ -118,10 +128,15 @@ export default function Usuarios({ actual, onChange }: { actual: string; onChang
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200 dark:divide-slate-600">
-            {usuarios.map((u) => (
+            {usuarios.map(({ usuario: u, debeCambiar }) => (
               <tr key={u} className="hover:bg-slate-100 dark:hover:bg-slate-600/50 transition-colors">
                 <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">
                   {u} {u === actual && <span className="text-xs text-slate-400 dark:text-slate-400 font-normal">(vos)</span>}
+                  {debeCambiar && (
+                    <span className="ml-2 inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                      Cambio pendiente
+                    </span>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-end gap-1">
@@ -138,13 +153,15 @@ export default function Usuarios({ actual, onChange }: { actual: string; onChang
                       </span>
                     ) : (
                       <>
-                        <button
-                          title="Cambiar clave"
-                          onClick={() => { setCambiando(u); setClaveCambio(""); }}
-                          className="p-1.5 rounded hover:bg-blue-100 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400 transition-colors"
-                        >
-                          <KeyRound size={15} />
-                        </button>
+                        {u === actual && (
+                          <button
+                            title="Cambiar mi clave"
+                            onClick={() => { setCambiando(u); setClaveCambio(""); }}
+                            className="p-1.5 rounded hover:bg-blue-100 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400 transition-colors"
+                          >
+                            <KeyRound size={15} />
+                          </button>
+                        )}
                         <button
                           title="Eliminar"
                           onClick={() => borrar(u)}

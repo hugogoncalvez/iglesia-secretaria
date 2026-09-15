@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getConfig, saveConfig, type ParishConfig } from "../lib/db";
 import { hacerBackup } from "../lib/backup";
+import { logAccion } from "../lib/auditoria";
 import { version } from "../../package.json";
 import {
   aplicarRestauracion,
@@ -11,7 +12,7 @@ import {
 
 const inputCls = "mt-1 w-full border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1.5 bg-parroquia-100 dark:bg-noche-600 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-parroquia-700 focus:border-transparent transition-colors";
 
-export default function Configuracion() {
+export default function Configuracion({ actual }: { actual: string }) {
   const [cfg, setCfg] = useState<ParishConfig | null>(null);
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
@@ -35,6 +36,7 @@ export default function Configuracion() {
     setErr("");
     try {
       await saveConfig(cfg);
+      void logAccion(actual, "CONFIG", "Datos de la parroquia actualizados.");
       setMsg("Datos guardados. Se usan en el membrete y la firma de los certificados.");
       setTimeout(() => setMsg(""), 4000);
     } catch (e) {
@@ -46,7 +48,9 @@ export default function Configuracion() {
     setBackupMsg("");
     setRespaldando(true);
     try {
-      setBackupMsg(await hacerBackup());
+      const msg = await hacerBackup();
+      void logAccion(actual, "RESGUARDO", msg);
+      setBackupMsg(msg);
     } catch (e) {
       if (e instanceof Error && e.message !== "cancelado") {
         setBackupMsg(`No se pudo hacer el resguardo: ${e.message}`);

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Lock, User } from "lucide-react";
 import { validateLogin, setSession } from "../lib/auth";
+import { logAccion } from "../lib/auditoria";
 import logoUrl from "../assets/logo.svg";
 import ClaveInput from "./ClaveInput";
 
@@ -21,6 +22,7 @@ export default function Login({ onOk, esPrimerArranque }: { onOk: (u: string) =>
       const ok = await validateLogin(usuario, password);
       if (!ok) {
         setError("Usuario o contraseña incorrectos.");
+        void logAccion(usuario.trim() || "?", "LOGIN_FALLIDO", "Intento de ingreso fallido.");
         return;
       }
       setSession(usuario.trim());

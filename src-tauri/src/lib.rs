@@ -8,14 +8,49 @@ fn greet(name: &str) -> String {
 
 /// Copia el archivo iglesia.db (SQLite local) al destino elegido.
 /// Devuelve la cantidad de bytes copiados.
+/// El plugin SQL guarda el archivo en app_config_dir (no en app_data_dir),
+/// así que se busca en ambas ubicaciones para que funcione en Windows/Linux/macOS.
 #[tauri::command]
 fn backup_db(app: tauri::AppHandle, destino: String) -> Result<u64, String> {
-    let dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("No se pudo ubicar la carpeta de datos: {e:?}"))?;
-    let origen = dir.join("iglesia.db");
-    std::fs::copy(&origen, &destino).map_err(|e| format!("No se pudo copiar la base de datos: {e}"))
+    let mut intentados: Vec<String> = Vec::new();
+    let mut origen_encontrado: Option<std::path::PathBuf> = None;
+
+    for dir in [app.path().app_config_dir(), app.path().app_data_dir()] {
+        match dir {
+            Ok(d) => {
+                let p = d.join("iglesia.db");
+                intentados.push(p.display().to_string());
+                if p.is_file() {
+                    origen_encontrado = Some(p);
+                    break;
+                }
+            }
+            Err(e) => intentados.push(format!("(no se pudo ubicar carpeta: {e:?})")),
+        }
+    }
+
+    let origen = origen_encontrado.ok_or_else(|| {
+        format!(
+            "No se encontró iglesia.db. Buscado en: {}",
+            intentados.join(" | ")
+        )
+    })?;
+
+    if let Some(padre) = std::path::Path::new(&destino).parent() {
+        if !padre.as_os_str().is_empty() {
+            std::fs::create_dir_all(padre).map_err(|e| {
+                format!("No se pudo crear la carpeta destino ({}): {e}", padre.display())
+            })?;
+        }
+    }
+
+    std::fs::copy(&origen, &destino).map_err(|e| {
+        format!(
+            "No se pudo copiar de {} a {}: {e}",
+            origen.display(),
+            destino
+        )
+    })
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

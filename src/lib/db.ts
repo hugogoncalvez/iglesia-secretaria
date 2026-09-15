@@ -78,12 +78,10 @@ export interface SacramentoInput {
   libro: string;
   folio: string;
   parroquia_capilla: string;
-  padrino: string;
-  madrina: string;
+  padrino: string; // bautismo y matrimonio
+  madrina: string; // bautismo y matrimonio
   notas_marginales: string;
   bautizado_en_parroquia: string; // confirmación (+ dato previo en matrimonio)
-  testigo_1: string; // matrimonio: Testigo 1 (Padrino)
-  testigo_2: string; // matrimonio: Testigo 2 (Madrina)
   domicilio_matrimonial: string; // matrimonio: "El matrimonio se domiciliará en"
   referencia_folios: string; // matrimonio: "Ver nota(s) en folio(s) N°"
   esposo_baut_lugar: string; // matrimonio: bautismo del esposo
@@ -114,8 +112,6 @@ export const SACRAMENTO_VACIO: SacramentoInput = {
   madrina: "",
   notas_marginales: "",
   bautizado_en_parroquia: "",
-  testigo_1: "",
-  testigo_2: "",
   domicilio_matrimonial: "",
   referencia_folios: "",
   esposo_baut_lugar: "",
@@ -208,8 +204,6 @@ async function ensureColumnas() {
   const info = await db.select<{ name: string }[]>("PRAGMA table_info(sacramentos)");
   const tiene = new Set(info.map((c) => c.name));
   const nuevas: string[] = [
-    "testigo_1",
-    "testigo_2",
     "domicilio_matrimonial",
     "referencia_folios",
     "esposo_baut_lugar",
@@ -230,6 +224,11 @@ async function ensureColumnas() {
       await db.execute(`ALTER TABLE sacramentos ADD COLUMN ${col} TEXT NOT NULL DEFAULT ''`);
     }
   }
+  // Usuarios: flag de cambio de clave pendiente en primer login
+  const infoU = await db.select<{ name: string }[]>("PRAGMA table_info(usuarios)");
+  if (!new Set(infoU.map((c) => c.name)).has("debe_cambiar")) {
+    await db.execute("ALTER TABLE usuarios ADD COLUMN debe_cambiar INTEGER NOT NULL DEFAULT 0");
+  }
 }
 
 export async function initDb(): Promise<Mode> {
@@ -248,7 +247,8 @@ export async function initDb(): Promise<Mode> {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         usuario TEXT UNIQUE NOT NULL,
         hash TEXT NOT NULL,
-        creado_en TEXT NOT NULL
+        creado_en TEXT NOT NULL,
+        debe_cambiar INTEGER NOT NULL DEFAULT 0
       );
     `);
     await db.execute(`
@@ -281,8 +281,6 @@ export async function initDb(): Promise<Mode> {
         madrina TEXT NOT NULL DEFAULT '',
         notas_marginales TEXT NOT NULL DEFAULT '',
         bautizado_en_parroquia TEXT NOT NULL DEFAULT '',
-        testigo_1 TEXT NOT NULL DEFAULT '',
-        testigo_2 TEXT NOT NULL DEFAULT '',
         domicilio_matrimonial TEXT NOT NULL DEFAULT '',
         referencia_folios TEXT NOT NULL DEFAULT '',
         esposo_baut_lugar TEXT NOT NULL DEFAULT '',
@@ -304,6 +302,15 @@ export async function initDb(): Promise<Mode> {
       CREATE TABLE IF NOT EXISTS config (
         clave TEXT PRIMARY KEY,
         valor TEXT NOT NULL DEFAULT ''
+      );
+    `);
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS auditoria (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        fecha_hora TEXT NOT NULL DEFAULT '',
+        usuario TEXT NOT NULL DEFAULT '',
+        accion TEXT NOT NULL DEFAULT '',
+        detalle TEXT NOT NULL DEFAULT ''
       );
     `);
     mode = "sqlite";
@@ -399,7 +406,6 @@ export async function getDetalle(id: number): Promise<ActaDetalle | null> {
         fecha_sacramento: string; ministro_celebrante: string; libro: string;
         folio: string; parroquia_capilla: string; padrino: string; madrina: string;
         notas_marginales: string; bautizado_en_parroquia: string;
-        testigo_1: string; testigo_2: string;
         domicilio_matrimonial: string; referencia_folios: string;
         esposo_baut_lugar: string; esposo_baut_fecha: string;
         esposo_baut_libro: string; esposo_baut_folio: string;
@@ -411,6 +417,8 @@ export async function getDetalle(id: number): Promise<ActaDetalle | null> {
     >("SELECT * FROM sacramentos WHERE id = $1", [id]);
     if (s.length === 0) return null;
     const a = s[0];
+    const legacy = a as unknown as Record<string, unknown>;
+    const leg = (k: string): string => (legacy[k] == null ? "" : String(legacy[k]));
     const leer = async (pid: number | null): Promise<Persona> => {
       if (!pid) return { ...PERSONA_VACIA };
       const r = await db!.select<Persona[]>("SELECT * FROM personas WHERE id = $1", [pid]);
@@ -425,11 +433,9 @@ export async function getDetalle(id: number): Promise<ActaDetalle | null> {
       ministro_celebrante: a.ministro_celebrante,
       libro: a.libro, folio: a.folio,
       parroquia_capilla: a.parroquia_capilla,
-      padrino: a.padrino, madrina: a.madrina,
+      padrino: a.padrino || leg("testigo_1"), madrina: a.madrina || leg("testigo_2"),
       notas_marginales: a.notas_marginales,
       bautizado_en_parroquia: a.bautizado_en_parroquia,
-      testigo_1: a.testigo_1 ?? "",
-      testigo_2: a.testigo_2 ?? "",
       domicilio_matrimonial: a.domicilio_matrimonial ?? "",
       referencia_folios: a.referencia_folios ?? "",
       esposo_baut_lugar: a.esposo_baut_lugar ?? "",
@@ -453,7 +459,6 @@ export async function getDetalle(id: number): Promise<ActaDetalle | null> {
     fecha_sacramento: string; ministro_celebrante: string; libro: string;
     folio: string; parroquia_capilla: string; padrino: string; madrina: string;
     notas_marginales: string; bautizado_en_parroquia: string;
-    testigo_1: string; testigo_2: string;
     domicilio_matrimonial: string; referencia_folios: string;
     esposo_baut_lugar: string; esposo_baut_fecha: string;
     esposo_baut_libro: string; esposo_baut_folio: string;
@@ -464,6 +469,8 @@ export async function getDetalle(id: number): Promise<ActaDetalle | null> {
   }>(LS_ACTAS);
   const a = actas.find((x) => x.id === id);
   if (!a) return null;
+  const legacyL = a as unknown as Record<string, unknown>;
+  const legL = (k: string): string => (legacyL[k] == null ? "" : String(legacyL[k]));
   const personas = lsRead<Persona>(LS_PERSONAS);
   const leer = (pid: number | null): Persona =>
     personas.find((p) => p.id === pid) ?? { ...PERSONA_VACIA };
@@ -476,11 +483,9 @@ export async function getDetalle(id: number): Promise<ActaDetalle | null> {
     ministro_celebrante: a.ministro_celebrante,
     libro: a.libro, folio: a.folio,
     parroquia_capilla: a.parroquia_capilla,
-    padrino: a.padrino, madrina: a.madrina,
+    padrino: a.padrino || legL("testigo_1"), madrina: a.madrina || legL("testigo_2"),
     notas_marginales: a.notas_marginales,
     bautizado_en_parroquia: a.bautizado_en_parroquia,
-    testigo_1: a.testigo_1 ?? "",
-    testigo_2: a.testigo_2 ?? "",
     domicilio_matrimonial: a.domicilio_matrimonial ?? "",
     referencia_folios: a.referencia_folios ?? "",
     esposo_baut_lugar: a.esposo_baut_lugar ?? "",
@@ -532,18 +537,17 @@ export async function crearActa(input: SacramentoInput): Promise<number> {
        (persona_id, esposo_persona_id, esposa_persona_id, tipo, fecha_sacramento,
         ministro_celebrante, libro, folio, parroquia_capilla, padrino, madrina,
         notas_marginales, bautizado_en_parroquia,
-        testigo_1, testigo_2, domicilio_matrimonial, referencia_folios,
+        domicilio_matrimonial, referencia_folios,
         esposo_baut_lugar, esposo_baut_fecha, esposo_baut_libro, esposo_baut_folio,
         esposa_baut_lugar, esposa_baut_fecha, esposa_baut_libro, esposa_baut_folio,
         conf_baut_lugar, conf_baut_fecha, conf_baut_libro, conf_baut_folio)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,
-               $18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29)`,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,
+               $16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27)`,
       [
         personaId, esposoId, esposaId, input.tipo, input.fecha_sacramento,
         input.ministro_celebrante, input.libro, input.folio, input.parroquia_capilla,
         input.padrino, input.madrina, input.notas_marginales,
         input.bautizado_en_parroquia,
-        input.testigo_1, input.testigo_2,
         input.domicilio_matrimonial, input.referencia_folios,
         input.esposo_baut_lugar, input.esposo_baut_fecha,
         input.esposo_baut_libro, input.esposo_baut_folio,
@@ -585,8 +589,6 @@ export async function crearActa(input: SacramentoInput): Promise<number> {
     padrino: input.padrino, madrina: input.madrina,
     notas_marginales: input.notas_marginales,
     bautizado_en_parroquia: input.bautizado_en_parroquia,
-    testigo_1: input.testigo_1,
-    testigo_2: input.testigo_2,
     domicilio_matrimonial: input.domicilio_matrimonial,
     referencia_folios: input.referencia_folios,
     esposo_baut_lugar: input.esposo_baut_lugar,
@@ -639,16 +641,15 @@ export async function actualizarActa(id: number, input: SacramentoInput): Promis
       `UPDATE sacramentos SET fecha_sacramento=$1, ministro_celebrante=$2, libro=$3,
        folio=$4, parroquia_capilla=$5, padrino=$6, madrina=$7, notas_marginales=$8,
        bautizado_en_parroquia=$9,
-       testigo_1=$10, testigo_2=$11, domicilio_matrimonial=$12, referencia_folios=$13,
-       esposo_baut_lugar=$14, esposo_baut_fecha=$15, esposo_baut_libro=$16, esposo_baut_folio=$17,
-       esposa_baut_lugar=$18, esposa_baut_fecha=$19, esposa_baut_libro=$20, esposa_baut_folio=$21,
-       conf_baut_lugar=$22, conf_baut_fecha=$23, conf_baut_libro=$24, conf_baut_folio=$25
-       WHERE id=$26`,
+       domicilio_matrimonial=$10, referencia_folios=$11,
+       esposo_baut_lugar=$12, esposo_baut_fecha=$13, esposo_baut_libro=$14, esposo_baut_folio=$15,
+       esposa_baut_lugar=$16, esposa_baut_fecha=$17, esposa_baut_libro=$18, esposa_baut_folio=$19,
+       conf_baut_lugar=$20, conf_baut_fecha=$21, conf_baut_libro=$22, conf_baut_folio=$23
+       WHERE id=$24`,
       [
         input.fecha_sacramento, input.ministro_celebrante, input.libro, input.folio,
         input.parroquia_capilla, input.padrino, input.madrina, input.notas_marginales,
         input.bautizado_en_parroquia,
-        input.testigo_1, input.testigo_2,
         input.domicilio_matrimonial, input.referencia_folios,
         input.esposo_baut_lugar, input.esposo_baut_fecha,
         input.esposo_baut_libro, input.esposo_baut_folio,
@@ -669,7 +670,6 @@ export async function actualizarActa(id: number, input: SacramentoInput): Promis
     fecha_sacramento: string; ministro_celebrante: string; libro: string;
     folio: string; parroquia_capilla: string; padrino: string; madrina: string;
     notas_marginales: string; bautizado_en_parroquia: string;
-    testigo_1: string; testigo_2: string;
     domicilio_matrimonial: string; referencia_folios: string;
     esposo_baut_lugar: string; esposo_baut_fecha: string;
     esposo_baut_libro: string; esposo_baut_folio: string;
@@ -699,8 +699,6 @@ export async function actualizarActa(id: number, input: SacramentoInput): Promis
       padrino: input.padrino, madrina: input.madrina,
       notas_marginales: input.notas_marginales,
       bautizado_en_parroquia: input.bautizado_en_parroquia,
-      testigo_1: input.testigo_1,
-      testigo_2: input.testigo_2,
       domicilio_matrimonial: input.domicilio_matrimonial,
       referencia_folios: input.referencia_folios,
       esposo_baut_lugar: input.esposo_baut_lugar,

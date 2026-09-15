@@ -2,7 +2,8 @@ import Database from "@tauri-apps/plugin-sql";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readTextFile } from "@tauri-apps/plugin-fs";
 import { LS_KEYS, getMode, initDb, isTauri, sqlExecute } from "./db";
-import { LS_USUARIOS_KEY, clearSession } from "./auth";
+import { LS_USUARIOS_KEY, clearSession, getSession } from "./auth";
+import { logAccion } from "./auditoria";
 
 type Fila = Record<string, unknown>;
 
@@ -190,8 +191,6 @@ const COLS_ACTA = [
   "madrina",
   "notas_marginales",
   "bautizado_en_parroquia",
-  "testigo_1",
-  "testigo_2",
   "domicilio_matrimonial",
   "referencia_folios",
   "esposo_baut_lugar",
@@ -238,10 +237,18 @@ export async function aplicarRestauracion(d: DatosResguardo): Promise<void> {
       );
     }
     for (const r of d.sacramentos) {
+      // Compat: copias viejas guardaban padrinos de matrimonio en testigo_1/2
+      const normalizada: Fila = { ...r };
+      if (!str(normalizada.padrino) && normalizada.testigo_1 != null) {
+        normalizada.padrino = normalizada.testigo_1;
+      }
+      if (!str(normalizada.madrina) && normalizada.testigo_2 != null) {
+        normalizada.madrina = normalizada.testigo_2;
+      }
       const vals = COLS_ACTA.map((c) =>
         ["id", "persona_id", "esposo_persona_id", "esposa_persona_id"].includes(c)
-          ? num(r[c])
-          : str(r[c])
+          ? num(normalizada[c])
+          : str(normalizada[c])
       );
       await sqlExecute(
         `INSERT INTO sacramentos (${COLS_ACTA.join(",")}) VALUES (${COLS_ACTA.map(
@@ -252,8 +259,8 @@ export async function aplicarRestauracion(d: DatosResguardo): Promise<void> {
     }
     for (const r of d.usuarios) {
       await sqlExecute(
-        "INSERT INTO usuarios (id, usuario, hash, creado_en) VALUES ($1,$2,$3,$4)",
-        [num(r.id), str(r.usuario), str(r.hash), str(r.creado_en) || new Date().toISOString()]
+        "INSERT INTO usuarios (id, usuario, hash, creado_en, debe_cambiar) VALUES ($1,$2,$3,$4,$5)",
+        [num(r.id), str(r.usuario), str(r.hash), str(r.creado_en) || new Date().toISOString(), num(r.debe_cambiar) ?? 0]
       );
     }
     for (const [clave, valor] of Object.entries(d.config)) {
@@ -263,8 +270,16 @@ export async function aplicarRestauracion(d: DatosResguardo): Promise<void> {
       ]);
     }
   } else {
+    const sacramentosNorm = d.sacramentos.map((r) => {
+      const n: Fila = { ...r };
+      if (!str(n.padrino) && n.testigo_1 != null) n.padrino = n.testigo_1;
+      if (!str(n.madrina) && n.testigo_2 != null) n.madrina = n.testigo_2;
+      delete n.testigo_1;
+      delete n.testigo_2;
+      return n;
+    });
     localStorage.setItem(LS_KEYS.personas, JSON.stringify(d.personas));
-    localStorage.setItem(LS_KEYS.actas, JSON.stringify(d.sacramentos));
+    localStorage.setItem(LS_KEYS.actas, JSON.stringify(sacramentosNorm));
     localStorage.setItem(LS_USUARIOS_KEY, JSON.stringify(d.usuarios));
     localStorage.setItem(LS_KEYS.config, JSON.stringify(d.config));
     let maxId = 0;
@@ -274,6 +289,12 @@ export async function aplicarRestauracion(d: DatosResguardo): Promise<void> {
     }
     localStorage.setItem(LS_KEYS.ids, String(maxId));
   }
+
+  await logAccion(
+    getSession() ?? "?",
+    "RESTAURAR",
+    `${d.sacramentos.length} actas · ${d.personas.length} personas · ${d.usuarios.length} usuarios`
+  );
 
   clearSession();
   window.location.reload();

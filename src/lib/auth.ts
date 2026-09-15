@@ -13,6 +13,8 @@ interface UsuarioRow {
   id: number;
   usuario: string;
   hash: string;
+  creado_en?: string;
+  debe_cambiar?: number;
 }
 
 /** Usuarios para incluir en el resguardo (solo modo web; en Tauri se copia el .db). */
@@ -44,7 +46,7 @@ export async function ensureDefaultUser(): Promise<boolean> {
     const rows = await sqlSelect<UsuarioRow[]>("SELECT * FROM usuarios LIMIT 1");
     if (rows.length > 0) return false;
     await sqlExecute(
-      "INSERT INTO usuarios (usuario, hash, creado_en) VALUES ($1,$2,$3)",
+      "INSERT INTO usuarios (usuario, hash, creado_en, debe_cambiar) VALUES ($1,$2,$3,1)",
       [DEFAULT_USER, await sha256(DEFAULT_PASS), new Date().toISOString()]
     );
     return true;
@@ -52,7 +54,7 @@ export async function ensureDefaultUser(): Promise<boolean> {
     // Modo local (web dev sin Tauri)
     const users = lsReadUsers();
     if (users.length > 0) return false;
-    users.push({ id: 1, usuario: DEFAULT_USER, hash: await sha256(DEFAULT_PASS) });
+    users.push({ id: 1, usuario: DEFAULT_USER, hash: await sha256(DEFAULT_PASS), debe_cambiar: 1 });
     localStorage.setItem(LS_USUARIOS, JSON.stringify(users));
     return true;
   }
@@ -101,6 +103,29 @@ export async function listUsuarios(): Promise<string[]> {
   }
 }
 
+/** Lista usuarios con su estado de cambio pendiente (para mostrar insignia). */
+export async function listUsuariosDetalle(): Promise<{ usuario: string; debeCambiar: boolean }[]> {
+  try {
+    const rows = await sqlSelect<UsuarioRow[]>(
+      "SELECT usuario, hash, debe_cambiar FROM usuarios ORDER BY usuario"
+    );
+    const defecto = await sha256(DEFAULT_PASS);
+    return rows.map((r) => ({
+      usuario: r.usuario,
+      debeCambiar: r.debe_cambiar === 1 || r.hash === defecto,
+    }));
+  } catch {
+    // Sin SQLite (modo web) o columna aún no migrada: usa localStorage
+    const defecto = await sha256(DEFAULT_PASS);
+    return lsReadUsers()
+      .map((u) => ({
+        usuario: u.usuario,
+        debeCambiar: u.debe_cambiar === 1 || u.hash === defecto,
+      }))
+      .sort((a, b) => a.usuario.localeCompare(b.usuario));
+  }
+}
+
 export async function crearUsuario(usuario: string, password: string): Promise<void> {
   const u = usuario.trim();
   if (u.length < 3) throw new Error("El usuario debe tener al menos 3 caracteres.");
@@ -113,7 +138,7 @@ export async function crearUsuario(usuario: string, password: string): Promise<v
     );
     if (rows.length > 0) throw new Error("Ese usuario ya existe.");
     await sqlExecute(
-      "INSERT INTO usuarios (usuario, hash, creado_en) VALUES ($1,$2,$3)",
+      "INSERT INTO usuarios (usuario, hash, creado_en, debe_cambiar) VALUES ($1,$2,$3,1)",
       [u, hash, new Date().toISOString()]
     );
   } catch (e) {
@@ -122,20 +147,36 @@ export async function crearUsuario(usuario: string, password: string): Promise<v
     const users = lsReadUsers();
     if (users.some((x) => x.usuario === u)) throw new Error("Ese usuario ya existe.");
     const id = users.length > 0 ? Math.max(...users.map((x) => x.id)) + 1 : 1;
-    users.push({ id, usuario: u, hash });
+    users.push({ id, usuario: u, hash, debe_cambiar: 1 });
     localStorage.setItem(LS_USUARIOS, JSON.stringify(users));
   }
 }
 
+/** Cambio hecho por el propio usuario (pantalla obligatoria): limpia el pendiente. */
 export async function cambiarPassword(usuario: string, nueva: string): Promise<void> {
   if (nueva.length < 4) throw new Error("La clave debe tener al menos 4 caracteres.");
   const hash = await sha256(nueva);
   try {
-    await sqlExecute("UPDATE usuarios SET hash=$1 WHERE usuario=$2", [hash, usuario]);
+    await sqlExecute("UPDATE usuarios SET hash=$1, debe_cambiar=0 WHERE usuario=$2", [hash, usuario]);
   } catch (e) {
     if (e instanceof Error && e.message !== "no-sqlite") throw e;
     const users = lsReadUsers().map((x) =>
-      x.usuario === usuario ? { ...x, hash } : x
+      x.usuario === usuario ? { ...x, hash, debe_cambiar: 0 as const } : x
+    );
+    localStorage.setItem(LS_USUARIOS, JSON.stringify(users));
+  }
+}
+
+/** Reseteo hecho por un administrador: deja pendiente el cambio en el próximo login. */
+export async function restablecerPassword(usuario: string, nueva: string): Promise<void> {
+  if (nueva.length < 4) throw new Error("La clave debe tener al menos 4 caracteres.");
+  const hash = await sha256(nueva);
+  try {
+    await sqlExecute("UPDATE usuarios SET hash=$1, debe_cambiar=1 WHERE usuario=$2", [hash, usuario]);
+  } catch (e) {
+    if (e instanceof Error && e.message !== "no-sqlite") throw e;
+    const users = lsReadUsers().map((x) =>
+      x.usuario === usuario ? { ...x, hash, debe_cambiar: 1 as const } : x
     );
     localStorage.setItem(LS_USUARIOS, JSON.stringify(users));
   }
@@ -164,6 +205,32 @@ export async function tieneClaveDefecto(usuario: string): Promise<boolean> {
   } catch {
     const u = lsReadUsers().find((x) => x.usuario === usuario);
     return !!u && u.hash === defecto;
+  }
+}
+
+/** true si el usuario debe cambiar su clave: pendiente de primer login/reseteo o clave de fábrica. */
+export async function debeCambiarClave(usuario: string): Promise<boolean> {
+  const defecto = await sha256(DEFAULT_PASS);
+  try {
+    const rows = await sqlSelect<UsuarioRow[]>(
+      "SELECT hash, debe_cambiar FROM usuarios WHERE usuario=$1 LIMIT 1",
+      [usuario]
+    );
+    if (rows.length !== 1) return false;
+    return rows[0].debe_cambiar === 1 || rows[0].hash === defecto;
+  } catch {
+    // Columna aún no migrada o modo web: lee todo y tolera la ausencia del flag
+    try {
+      const rows = await sqlSelect<UsuarioRow[]>(
+        "SELECT * FROM usuarios WHERE usuario=$1 LIMIT 1",
+        [usuario]
+      );
+      if (rows.length !== 1) return false;
+      return rows[0].debe_cambiar === 1 || rows[0].hash === defecto;
+    } catch {
+      const u = lsReadUsers().find((x) => x.usuario === usuario);
+      return !!u && (u.debe_cambiar === 1 || u.hash === defecto);
+    }
   }
 }
 

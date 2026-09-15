@@ -23,8 +23,6 @@ export async function sembrarDemo(): Promise<number> {
     | "padrino"
     | "madrina"
     | "bautizado_en_parroquia"
-    | "testigo_1"
-    | "testigo_2"
     | "domicilio_matrimonial"
     | "referencia_folios"
   > = {
@@ -34,8 +32,6 @@ export async function sembrarDemo(): Promise<number> {
     padrino: "",
     madrina: "",
     bautizado_en_parroquia: "",
-    testigo_1: "",
-    testigo_2: "",
     domicilio_matrimonial: "",
     referencia_folios: "",
   };
@@ -158,8 +154,8 @@ export async function sembrarDemo(): Promise<number> {
     esposa_baut_fecha: "1986-11-02",
     esposa_baut_libro: "5",
     esposa_baut_folio: "88",
-    testigo_1: "Benítez, Miguel Ángel",
-    testigo_2: "Ferreira, Ana Beatriz",
+    padrino: "Benítez, Miguel Ángel",
+    madrina: "Ferreira, Ana Beatriz",
     domicilio_matrimonial: "Rivadavia 890, Garupá",
     referencia_folios: "12",
   };
