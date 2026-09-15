@@ -42,19 +42,29 @@ async fn resguardar_db(app: tauri::AppHandle, nombre: String) -> Result<Resguard
         )
     })?;
 
-    // 2. Diálogo nativo de guardado (arranca en Documentos).
-    let mut dialogo = app
-        .dialog()
-        .file()
-        .add_filter("Base de datos", &["db"])
-        .set_file_name(&nombre)
-        .set_title("Guardar copia de seguridad");
-    if let Ok(docs) = app.path().document_dir() {
-        dialogo = dialogo.set_directory(docs);
-    }
-    let destino = dialogo
-        .blocking_save_file()
-        .and_then(|f| f.as_path().map(|p| p.to_path_buf()))
+    // 2. Diálogo nativo de guardado EN EL HILO PRINCIPAL (los diálogos
+    // bloqueantes fuera de él se cuelgan en algunos Windows).
+    let (tx, rx) = std::sync::mpsc::channel();
+    let app2 = app.clone();
+    let docs = app.path().document_dir().ok();
+    app.run_on_main_thread(move || {
+        let mut dialogo = app2
+            .dialog()
+            .file()
+            .add_filter("Base de datos", &["db"])
+            .set_file_name(&nombre)
+            .set_title("Guardar copia de seguridad");
+        if let Some(d) = docs {
+            dialogo = dialogo.set_directory(d);
+        }
+        dialogo.save_file(move |fp| {
+            let _ = tx.send(fp.and_then(|f| f.as_path().map(|p| p.to_path_buf())));
+        });
+    })
+    .map_err(|e| format!("No se pudo abrir el diálogo de guardado: {e}"))?;
+    let destino = rx
+        .recv()
+        .map_err(|e| format!("Diálogo interrumpido: {e}"))?
         .ok_or_else(|| "cancelado".to_string())?;
 
     // 3. Copiar y verificar que el archivo quedó creado y no vacío.
