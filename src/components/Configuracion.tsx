@@ -52,7 +52,9 @@ export default function Configuracion({ actual }: { actual: string }) {
       void logAccion(actual, "RESGUARDO", msg);
       setBackupMsg(msg);
     } catch (e) {
-      if (e instanceof Error && e.message !== "cancelado") {
+      if (e instanceof Error && e.message === "cancelado") {
+        setBackupMsg("Resguardo cancelado: no se eligió destino.");
+      } else if (e instanceof Error) {
         setBackupMsg(`No se pudo hacer el resguardo: ${e.message}`);
       }
     } finally {

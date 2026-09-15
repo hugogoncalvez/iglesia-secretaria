@@ -1,12 +1,17 @@
 import { invoke } from "@tauri-apps/api/core";
-import { save } from "@tauri-apps/plugin-dialog";
 import { dumpLocalJSON, isTauri, sqlExecute } from "./db";
 import { volcarUsuarios } from "./auth";
 
+interface ResguardoOk {
+  ruta: string;
+  bytes: number;
+}
+
 /**
  * Resguardo de datos.
- * - En la app instalada (Tauri): elige destino con diálogo y copia iglesia.db
- *   (ideal: pendrive). Devuelve mensaje con la ruta.
+ * - En la app instalada (Tauri): un solo comando nativo muestra el diálogo,
+ *   copia iglesia.db y verifica que el archivo quedó creado.
+ *   Devuelve mensaje con la ruta.
  * - En modo web (pnpm dev): descarga un JSON con todo el contenido.
  * Lanza Error("cancelado") si el usuario cierra el diálogo.
  */
@@ -33,13 +38,9 @@ export async function hacerBackup(): Promise<string> {
     /* sigue igual: el modo por defecto ya es consistente */
   }
 
-  const destino = await save({
-    defaultPath: `iglesia-resguardo-${fecha}.db`,
-    filters: [{ name: "Base de datos", extensions: ["db"] }],
+  const r = await invoke<ResguardoOk>("resguardar_db", {
+    nombre: `iglesia-resguardo-${fecha}.db`,
   });
-  if (!destino) throw new Error("cancelado");
-
-  const bytes = await invoke<number>("backup_db", { destino });
-  const kb = Math.max(1, Math.round(bytes / 1024));
-  return `Resguardo guardado en ${destino} (${kb} KB).`;
+  const kb = Math.max(1, Math.round(r.bytes / 1024));
+  return `Resguardo guardado en ${r.ruta} (${kb} KB).`;
 }
