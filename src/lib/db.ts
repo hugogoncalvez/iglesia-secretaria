@@ -55,6 +55,9 @@ export interface ActaRow {
   libro: string;
   folio: string;
   parroquia_capilla: string;
+  persona_id: number | null;
+  esposo_persona_id: number | null;
+  esposa_persona_id: number | null;
   titular_nombre: string | null;
   titular_doc: string | null;
   esposo_nombre: string | null;
@@ -195,6 +198,7 @@ function lsNextId(): number {
 const SELECT_ACTAS = `
   SELECT s.id, s.tipo, s.fecha_sacramento, s.ministro_celebrante,
          s.libro, s.folio, s.parroquia_capilla,
+         s.persona_id, s.esposo_persona_id, s.esposa_persona_id,
          p.apellido_nombres AS titular_nombre, p.documento AS titular_doc,
          pe.apellido_nombres AS esposo_nombre, pe.documento AS esposo_doc,
          pa.apellido_nombres AS esposa_nombre, pa.documento AS esposa_doc
@@ -514,6 +518,9 @@ export async function listActas(f: FiltrosActas): Promise<ActaRow[]> {
     libro: s.libro,
     folio: s.folio,
     parroquia_capilla: s.parroquia_capilla,
+    persona_id: s.persona_id ?? null,
+    esposo_persona_id: s.esposo_persona_id ?? null,
+    esposa_persona_id: s.esposa_persona_id ?? null,
     titular_nombre: porId.get(s.persona_id ?? -1)?.apellido_nombres ?? null,
     titular_doc: porId.get(s.persona_id ?? -1)?.documento ?? null,
     esposo_nombre: porId.get(s.esposo_persona_id ?? -1)?.apellido_nombres ?? null,
@@ -645,6 +652,169 @@ export async function getDetalle(id: number): Promise<ActaDetalle | null> {
     conf_baut_folio: a.conf_baut_folio ?? "",
   };
 }
+
+export interface LegajoItem {
+  actaId: number;
+  tipo: TipoSacramento;
+  fecha_sacramento: string;
+  libro: string;
+  folio: string;
+  parroquia_capilla: string;
+  ministro_celebrante: string;
+  padrino: string;
+  madrina: string;
+  rol: "TITULAR" | "ESPOSO" | "ESPOSA";
+  conyugeNombre?: string;
+}
+
+export interface LegajoPersona {
+  persona: Persona;
+  hitos: LegajoItem[];
+}
+
+/** Obtiene el legajo/historial de sacramentos de una persona por su ID (o por el ID de un acta). */
+export async function getLegajoPersona(personaId: number): Promise<LegajoPersona | null> {
+  await initDb();
+  if (mode === "sqlite" && db) {
+    const pRows = await db.select<Persona[]>("SELECT * FROM personas WHERE id = $1", [personaId]);
+    if (pRows.length === 0) return null;
+    const persona = pRows[0];
+
+    const sRows = await db.select<
+      {
+        id: number;
+        tipo: TipoSacramento;
+        persona_id: number | null;
+        esposo_persona_id: number | null;
+        esposa_persona_id: number | null;
+        fecha_sacramento: string;
+        libro: string;
+        folio: string;
+        parroquia_capilla: string;
+        ministro_celebrante: string;
+        padrino: string;
+        madrina: string;
+      }[]
+    >(
+      `SELECT id, tipo, persona_id, esposo_persona_id, esposa_persona_id,
+              fecha_sacramento, libro, folio, parroquia_capilla,
+              ministro_celebrante, padrino, madrina
+       FROM sacramentos
+       WHERE persona_id = $1 OR esposo_persona_id = $1 OR esposa_persona_id = $1
+       ORDER BY fecha_sacramento ASC`,
+      [personaId]
+    );
+
+    const hitos: LegajoItem[] = [];
+    for (const r of sRows) {
+      let rol: "TITULAR" | "ESPOSO" | "ESPOSA" = "TITULAR";
+      let conyugeNombre: string | undefined;
+
+      if (r.tipo === "MATRIMONIO") {
+        if (r.esposo_persona_id === personaId) {
+          rol = "ESPOSO";
+          if (r.esposa_persona_id) {
+            const cony = await db.select<{ apellido_nombres: string }[]>(
+              "SELECT apellido_nombres FROM personas WHERE id = $1",
+              [r.esposa_persona_id]
+            );
+            conyugeNombre = cony[0]?.apellido_nombres;
+          }
+        } else if (r.esposa_persona_id === personaId) {
+          rol = "ESPOSA";
+          if (r.esposo_persona_id) {
+            const cony = await db.select<{ apellido_nombres: string }[]>(
+              "SELECT apellido_nombres FROM personas WHERE id = $1",
+              [r.esposo_persona_id]
+            );
+            conyugeNombre = cony[0]?.apellido_nombres;
+          }
+        }
+      }
+
+      hitos.push({
+        actaId: r.id,
+        tipo: r.tipo,
+        fecha_sacramento: r.fecha_sacramento,
+        libro: r.libro,
+        folio: r.folio,
+        parroquia_capilla: r.parroquia_capilla,
+        ministro_celebrante: r.ministro_celebrante,
+        padrino: r.padrino,
+        madrina: r.madrina,
+        rol,
+        conyugeNombre,
+      });
+    }
+
+    return { persona, hitos };
+  }
+
+  // Fallback modo local (localStorage)
+  const personas = lsRead<Persona>(LS_PERSONAS);
+  const persona = personas.find((p) => p.id === personaId);
+  if (!persona) return null;
+
+  const actas = lsRead<{
+    id: number;
+    tipo: TipoSacramento;
+    persona_id: number | null;
+    esposo_persona_id: number | null;
+    esposa_persona_id: number | null;
+    fecha_sacramento: string;
+    libro: string;
+    folio: string;
+    parroquia_capilla: string;
+    ministro_celebrante: string;
+    padrino: string;
+    madrina: string;
+  }>(LS_ACTAS);
+
+  const misActas = actas
+    .filter(
+      (a) =>
+        a.persona_id === personaId ||
+        a.esposo_persona_id === personaId ||
+        a.esposa_persona_id === personaId
+    )
+    .sort((a, b) => a.fecha_sacramento.localeCompare(b.fecha_sacramento));
+
+  const hitos: LegajoItem[] = misActas.map((r) => {
+    let rol: "TITULAR" | "ESPOSO" | "ESPOSA" = "TITULAR";
+    let conyugeNombre: string | undefined;
+
+    if (r.tipo === "MATRIMONIO") {
+      if (r.esposo_persona_id === personaId) {
+        rol = "ESPOSO";
+        if (r.esposa_persona_id) {
+          conyugeNombre = personas.find((p) => p.id === r.esposa_persona_id)?.apellido_nombres;
+        }
+      } else if (r.esposa_persona_id === personaId) {
+        rol = "ESPOSA";
+        if (r.esposo_persona_id) {
+          conyugeNombre = personas.find((p) => p.id === r.esposo_persona_id)?.apellido_nombres;
+        }
+      }
+    }
+
+    return {
+      actaId: r.id,
+      tipo: r.tipo,
+      fecha_sacramento: r.fecha_sacramento,
+      libro: r.libro,
+      folio: r.folio,
+      parroquia_capilla: r.parroquia_capilla,
+      ministro_celebrante: r.ministro_celebrante,
+      padrino: r.padrino,
+      madrina: r.madrina,
+      rol,
+      conyugeNombre,
+    };
+  });
+
+  return { persona, hitos };
+}
+
 
 const PERSONA_COLS =
   "apellido_nombres, documento, fecha_nacimiento, lugar_nacimiento, nacionalidad, domicilio, telefono, nombre_padre, nombre_madre";

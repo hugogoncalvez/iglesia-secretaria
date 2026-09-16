@@ -1,5 +1,5 @@
 import { useEffect, useId, useState } from "react";
-import { Eye, FileText, Pencil, SearchX, Trash2, X } from "lucide-react";
+import { Eye, FileText, Pencil, ScrollText, SearchX, Trash2, X } from "lucide-react";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import {
   CON_CERTIFICADO,
@@ -13,11 +13,13 @@ import {
   eliminarActa,
   getConfig,
   getDetalle,
+  getLegajoPersona,
   listActas,
   nombreActa,
   type ActaDetalle,
   type ActaRow,
   type FiltrosActas,
+  type LegajoPersona,
   type ParishConfig,
   type Persona,
   type SacramentoInput,
@@ -201,7 +203,23 @@ export default function Sacramentos({ actual }: { actual: string }) {
   const [viendo, setViendo] = useState<ActaDetalle | null>(null);
   const [borrando, setBorrando] = useState<ActaRow | null>(null);
   const [imprimiendo, setImprimiendo] = useState<ActaDetalle | null>(null);
+  const [legajoData, setLegajoData] = useState<LegajoPersona | null>(null);
+  const [cargandoLegajo, setCargandoLegajo] = useState(false);
   const [cfg, setCfg] = useState<ParishConfig>(DEFAULT_PARISH);
+
+  async function verLegajo(personaId: number | null) {
+    if (!personaId) return;
+    setCargandoLegajo(true);
+    try {
+      const leg = await getLegajoPersona(personaId);
+      if (leg) setLegajoData(leg);
+      else avisar("No se encontraron registros para esta persona.", "error");
+    } catch (e) {
+      avisar(mensajeError(e), "error");
+    } finally {
+      setCargandoLegajo(false);
+    }
+  }
   const [sello, setSello] = useState<string | null>(null);
   const [conteo, setConteo] = useState<Record<TipoSacramento, number>>({
     BAUTISMO: 0,
@@ -489,6 +507,13 @@ export default function Sacramentos({ actual }: { actual: string }) {
                       >
                         <Eye size={15} />
                       </button>
+                      <button
+                        title="Ver legajo de la persona"
+                        onClick={() => verLegajo(r.persona_id || r.esposo_persona_id || r.esposa_persona_id)}
+                        className="p-1.5 rounded hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 transition-colors"
+                      >
+                        <ScrollText size={15} />
+                      </button>
                       {(CON_CERTIFICADO as string[]).includes(r.tipo) && (
                         <button
                           title="Certificado"
@@ -744,7 +769,187 @@ export default function Sacramentos({ actual }: { actual: string }) {
       <div className="hidden print:block">
         {imprimiendo && <CertificadoPrintable a={imprimiendo} cfg={cfg} />}
       </div>
+
+      {/* Legajo Sacramental */}
+      {legajoData && (
+        <LegajoModal
+          legajo={legajoData}
+          onClose={() => setLegajoData(null)}
+          onVerActa={(actaId) => {
+            setLegajoData(null);
+            ver(actaId);
+          }}
+          onCertificado={(actaId) => {
+            setLegajoData(null);
+            certificado(actaId);
+          }}
+        />
+      )}
+
+      {/* Indicador de carga de legajo */}
+      {cargandoLegajo && (
+        <div className="no-print fixed inset-y-0 right-0 left-[var(--sidebar-w,0px)] bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-noche-700 dark:text-slate-100 rounded-xl p-4 shadow-lg flex items-center gap-3">
+            <span className="animate-spin text-parroquia-700 dark:text-slate-300">🌀</span>
+            <p className="text-sm font-medium">Cargando legajo sacramental…</p>
+          </div>
+        </div>
+      )}
+
       <ToastHost items={avisos} />
+    </div>
+  );
+}
+
+function LegajoModal({
+  legajo,
+  onClose,
+  onVerActa,
+  onCertificado,
+}: {
+  legajo: LegajoPersona;
+  onClose: () => void;
+  onVerActa: (id: number) => void;
+  onCertificado: (id: number) => void;
+}) {
+  const p = legajo.persona;
+  return (
+    <div className="no-print fixed inset-y-0 right-0 left-[var(--sidebar-w,0px)] bg-black/40 flex items-start justify-center p-4 overflow-auto z-40">
+      <div className="bg-white dark:bg-noche-700 dark:text-slate-100 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 max-w-2xl w-full p-5 space-y-4 my-6 animate-modal-in">
+        <div className="flex items-start justify-between border-b dark:border-slate-600 pb-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <ScrollText className="text-parroquia-700 dark:text-parroquia-400" size={22} />
+              <h3 className="font-display font-bold text-xl text-parroquia-900 dark:text-slate-100">
+                Legajo Sacramental
+              </h3>
+            </div>
+            <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 mt-1">
+              {p.apellido_nombres || "Sin nombre registrado"}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-500 transition-colors"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Datos Personales */}
+        <div className="bg-parroquia-50 dark:bg-noche-600 rounded-lg p-3 text-xs grid grid-cols-2 md:grid-cols-3 gap-2 border border-parroquia-200 dark:border-slate-600">
+          <p><b>DNI:</b> {p.documento || "—"}</p>
+          <p><b>F. Nacimiento:</b> {p.fecha_nacimiento || "—"}</p>
+          <p><b>Nacionalidad:</b> {p.nacionalidad || "—"}</p>
+          <p><b>Padre:</b> {p.nombre_padre || "—"}</p>
+          <p><b>Madre:</b> {p.nombre_madre || "—"}</p>
+          <p><b>Teléfono:</b> {p.telefono || "—"}</p>
+        </div>
+
+        {/* Línea de tiempo de sacramentos */}
+        <div className="space-y-3">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            Trayectoria Sacramental ({legajo.hitos.length} {legajo.hitos.length === 1 ? "sacramento" : "sacramentos"})
+          </h4>
+
+          {legajo.hitos.length === 0 ? (
+            <p className="text-sm text-slate-500 italic p-3 border rounded-lg">
+              No hay sacramentos vinculados directamente a este legajo.
+            </p>
+          ) : (
+            <div className="relative pl-6 space-y-4 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200 dark:before:bg-slate-600">
+              {legajo.hitos.map((h, idx) => {
+                const colorTag =
+                  h.tipo === "BAUTISMO"
+                    ? "bg-[#DBEAFE] text-[#1D4ED8] dark:bg-blue-900/40 dark:text-blue-300"
+                    : h.tipo === "COMUNION"
+                    ? "bg-[#D1FAE5] text-[#065F46] dark:bg-emerald-900/40 dark:text-emerald-300"
+                    : h.tipo === "CONFIRMACION"
+                    ? "bg-[#EDE9FE] text-[#5B21B6] dark:bg-violet-900/40 dark:text-violet-300"
+                    : "bg-[#FCE7F3] text-[#9D174D] dark:bg-rose-900/40 dark:text-rose-300";
+
+                const dotColor =
+                  h.tipo === "BAUTISMO"
+                    ? "bg-[#1D4ED8]"
+                    : h.tipo === "COMUNION"
+                    ? "bg-[#065F46]"
+                    : h.tipo === "CONFIRMACION"
+                    ? "bg-[#5B21B6]"
+                    : "bg-[#9D174D]";
+
+                return (
+                  <div key={idx} className="relative group">
+                    {/* Punto en la línea de tiempo */}
+                    <div
+                      className={`absolute -left-6 top-3 w-3 h-3 rounded-full border-2 border-white dark:border-noche-700 ${dotColor}`}
+                    />
+
+                    <div className="bg-white dark:bg-noche-600 border border-slate-200 dark:border-slate-600 rounded-lg p-3 text-sm space-y-1.5 shadow-sm hover:border-parroquia-500 transition-colors">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${colorTag}`}>
+                            {h.tipo}
+                          </span>
+                          <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                            {h.fecha_sacramento || "Fecha no registrada"}
+                          </span>
+                        </div>
+                        <span className="text-xs font-mono text-slate-500 dark:text-slate-400">
+                          Libro {h.libro || "—"} / Folio {h.folio || "—"}
+                        </span>
+                      </div>
+
+                      {h.tipo === "MATRIMONIO" && h.conyugeNombre && (
+                        <p className="text-xs text-slate-700 dark:text-slate-200">
+                          <b>Cónyuge:</b> {h.conyugeNombre} ({h.rol})
+                        </p>
+                      )}
+
+                      {(h.padrino || h.madrina) && (
+                        <p className="text-xs text-slate-600 dark:text-slate-300">
+                          <b>Padrinos:</b> {h.padrino || "—"} / {h.madrina || "—"}
+                        </p>
+                      )}
+
+                      {h.ministro_celebrante && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          <b>Celebrante:</b> {h.ministro_celebrante}
+                        </p>
+                      )}
+
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          onClick={() => onVerActa(h.actaId)}
+                          className="text-xs flex items-center gap-1 text-parroquia-700 dark:text-parroquia-300 font-medium hover:underline"
+                        >
+                          <Eye size={13} /> Ver acta completa
+                        </button>
+                        {(CON_CERTIFICADO as string[]).includes(h.tipo) && (
+                          <button
+                            onClick={() => onCertificado(h.actaId)}
+                            className="text-xs flex items-center gap-1 text-dorado-600 dark:text-dorado-400 font-medium hover:underline ml-2"
+                          >
+                            <FileText size={13} /> Certificado PDF
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end pt-2">
+          <button
+            onClick={onClose}
+            className="border border-slate-300 dark:border-slate-500 rounded-lg px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors font-medium"
+          >
+            Cerrar Legajo
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
