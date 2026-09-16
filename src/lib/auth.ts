@@ -1,4 +1,5 @@
 import { sqlSelect, sqlExecute } from "./db";
+import { esNoSqlite } from "./errores";
 
 const LS_USUARIOS = "iglesia_usuarios";
 const LS_SESSION = "iglesia_session";
@@ -142,7 +143,7 @@ export async function crearUsuario(usuario: string, password: string): Promise<v
       [u, hash, new Date().toISOString()]
     );
   } catch (e) {
-    if (e instanceof Error && e.message !== "no-sqlite") throw e;
+    if (!esNoSqlite(e)) throw e;
     // Modo local
     const users = lsReadUsers();
     if (users.some((x) => x.usuario === u)) throw new Error("Ese usuario ya existe.");
@@ -159,7 +160,7 @@ export async function cambiarPassword(usuario: string, nueva: string): Promise<v
   try {
     await sqlExecute("UPDATE usuarios SET hash=$1, debe_cambiar=0 WHERE usuario=$2", [hash, usuario]);
   } catch (e) {
-    if (e instanceof Error && e.message !== "no-sqlite") throw e;
+    if (!esNoSqlite(e)) throw e;
     const users = lsReadUsers().map((x) =>
       x.usuario === usuario ? { ...x, hash, debe_cambiar: 0 as const } : x
     );
@@ -174,7 +175,7 @@ export async function restablecerPassword(usuario: string, nueva: string): Promi
   try {
     await sqlExecute("UPDATE usuarios SET hash=$1, debe_cambiar=1 WHERE usuario=$2", [hash, usuario]);
   } catch (e) {
-    if (e instanceof Error && e.message !== "no-sqlite") throw e;
+    if (!esNoSqlite(e)) throw e;
     const users = lsReadUsers().map((x) =>
       x.usuario === usuario ? { ...x, hash, debe_cambiar: 1 as const } : x
     );

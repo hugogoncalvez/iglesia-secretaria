@@ -4,6 +4,7 @@ import { readTextFile } from "@tauri-apps/plugin-fs";
 import { LS_KEYS, getMode, initDb, isTauri, sqlExecute } from "./db";
 import { LS_USUARIOS_KEY, clearSession, getSession } from "./auth";
 import { logAccion } from "./auditoria";
+import { mensajeError } from "./errores";
 
 type Fila = Record<string, unknown>;
 
@@ -46,7 +47,7 @@ async function leerDb(path: string): Promise<DatosResguardo> {
   }
   if (!db2) {
     throw new Error(
-      `No se pudo leer la copia (${ultimoError instanceof Error ? ultimoError.message : "formato no reconocido"}).`
+      `No se pudo leer la copia (${mensajeError(ultimoError, "formato no reconocido")}).`
     );
   }
   const tablas = await db2.select<{ name: string }[]>(

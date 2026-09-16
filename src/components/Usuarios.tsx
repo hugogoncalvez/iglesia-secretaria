@@ -7,6 +7,7 @@ import {
 } from "../lib/auth";
 import ClaveInput from "./ClaveInput";
 import { logAccion } from "../lib/auditoria";
+import { mensajeError } from "../lib/errores";
 import { KeyRound, Trash2 } from "lucide-react";
 
 export default function Usuarios({ actual, onChange }: { actual: string; onChange?: () => void }) {
@@ -32,7 +33,7 @@ export default function Usuarios({ actual, onChange }: { actual: string; onChang
     setTimeout(() => setMsg(""), 3000);
   }
   function fail(e: unknown) {
-    setErr(e instanceof Error ? e.message : "Ocurrió un error.");
+    setErr(mensajeError(e));
     setMsg("");
   }
 

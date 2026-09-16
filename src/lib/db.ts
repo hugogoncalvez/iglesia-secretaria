@@ -1,4 +1,5 @@
 import Database from "@tauri-apps/plugin-sql";
+import { esNoSqlite } from "./errores";
 
 // Modelo según actas de los libros:
 // - personas: registro único de personas (niño/a, contrayentes, etc.)
@@ -324,6 +325,23 @@ export async function initDb(): Promise<Mode> {
 
 export function getMode(): Mode {
   return mode;
+}
+
+/** Modo y ruta real de la base (para diagnóstico en Configuración). */
+export async function infoBase(): Promise<{ modo: Mode; ruta: string }> {
+  await initDb();
+  if (mode === "sqlite" && db) {
+    try {
+      const rows = await db.select<{ name: string; file: string | null }[]>(
+        "PRAGMA database_list"
+      );
+      const main = rows.find((r) => r.name === "main");
+      return { modo: mode, ruta: main?.file || "(ruta no informada por SQLite)" };
+    } catch {
+      return { modo: mode, ruta: "(no se pudo leer la ruta)" };
+    }
+  }
+  return { modo: mode, ruta: "localStorage del equipo (modo web)" };
 }
 
 export async function listActas(f: FiltrosActas): Promise<ActaRow[]> {
@@ -836,7 +854,7 @@ export async function saveConfig(cfg: ParishConfig): Promise<void> {
       ]);
     }
   } catch (e) {
-    if (e instanceof Error && e.message !== "no-sqlite") throw e;
+    if (!esNoSqlite(e)) throw e;
     localStorage.setItem(LS_CONFIG, JSON.stringify(cfg));
   }
 }

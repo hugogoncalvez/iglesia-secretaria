@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { getConfig, saveConfig, type ParishConfig } from "../lib/db";
+import { getConfig, infoBase, saveConfig, type ParishConfig } from "../lib/db";
 import { hacerBackup } from "../lib/backup";
 import { logAccion } from "../lib/auditoria";
+import { mensajeError } from "../lib/errores";
 import { version } from "../../package.json";
 import {
   aplicarRestauracion,
@@ -25,9 +26,13 @@ export default function Configuracion({ actual }: { actual: string }) {
   const [eligiendo, setEligiendo] = useState(false);
   const [restaurando, setRestaurando] = useState(false);
   const [restErr, setRestErr] = useState("");
+  const [baseInfo, setBaseInfo] = useState("Consultando…");
 
   useEffect(() => {
     getConfig().then(setCfg);
+    infoBase()
+      .then((b) => setBaseInfo(b.modo === "sqlite" ? `SQLite — ${b.ruta}` : b.ruta))
+      .catch(() => setBaseInfo("No se pudo determinar."));
   }, []);
 
   async function guardar(e: React.FormEvent) {
@@ -40,7 +45,7 @@ export default function Configuracion({ actual }: { actual: string }) {
       setMsg("Datos guardados. Se usan en el membrete y la firma de los certificados.");
       setTimeout(() => setMsg(""), 4000);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Ocurrió un error.");
+      setErr(mensajeError(e));
     }
   }
 
@@ -52,11 +57,8 @@ export default function Configuracion({ actual }: { actual: string }) {
       void logAccion(actual, "RESGUARDO", msg);
       setBackupMsg(msg);
     } catch (e) {
-      if (e instanceof Error && e.message === "cancelado") {
-        setBackupMsg("Resguardo cancelado: no se eligió destino.");
-      } else if (e instanceof Error) {
-        setBackupMsg(`No se pudo hacer el resguardo: ${e.message}`);
-      }
+      const m = mensajeError(e);
+      setBackupMsg(m === "cancelado" ? "Resguardo cancelado: no se eligió destino." : `No se pudo hacer el resguardo: ${m}`);
     } finally {
       setRespaldando(false);
     }
@@ -69,7 +71,7 @@ export default function Configuracion({ actual }: { actual: string }) {
       const sel = await elegirCopia();
       if (sel) setCopia(sel);
     } catch (e) {
-      setRestErr(e instanceof Error ? e.message : "No se pudo leer la copia.");
+      setRestErr(mensajeError(e, "No se pudo leer la copia."));
     } finally {
       setEligiendo(false);
     }
@@ -82,7 +84,7 @@ export default function Configuracion({ actual }: { actual: string }) {
     try {
       await aplicarRestauracion(copia.datos);
     } catch (e) {
-      setRestErr(e instanceof Error ? e.message : "No se pudo restaurar.");
+      setRestErr(mensajeError(e, "No se pudo restaurar."));
       setRestaurando(false);
     }
   }
@@ -187,6 +189,7 @@ export default function Configuracion({ actual }: { actual: string }) {
         <h3 className="font-display font-bold">Acerca de</h3>
         <p className="text-sm font-medium">Scriptorium</p>
         <p className="text-xs text-slate-500 dark:text-slate-300">Versión {version}</p>
+        <p className="text-xs text-slate-500 dark:text-slate-300 break-all">Base: {baseInfo}</p>
         <p className="text-xs text-slate-500 dark:text-slate-300">Desarrollador: Hugo Goncalvez</p>
         <p className="text-xs text-slate-500 dark:text-slate-300">hugogoncalvez@gmail.com</p>
       </div>

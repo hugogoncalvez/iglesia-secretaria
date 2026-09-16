@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { dumpLocalJSON, isTauri, sqlExecute } from "./db";
+import { dumpLocalJSON, isTauri, sqlExecute, sqlSelect } from "./db";
 import { volcarUsuarios } from "./auth";
 
 interface ResguardoOk {
@@ -38,8 +38,22 @@ export async function hacerBackup(): Promise<string> {
     /* sigue igual: el modo por defecto ya es consistente */
   }
 
+  // Ruta exacta del archivo (no adivinar: en algunos Windows está en
+  // Local y en otros en Roaming según cómo resuelva el plugin SQL).
+  let origen: string | null = null;
+  try {
+    const rows = await sqlSelect<{ seq: number; name: string; file: string | null }[]>(
+      "PRAGMA database_list"
+    );
+    const main = rows.find((r) => r.name === "main");
+    if (main?.file) origen = main.file;
+  } catch {
+    /* Rust intentará ubicarla por las carpetas conocidas */
+  }
+
   const r = await invoke<ResguardoOk>("resguardar_db", {
     nombre: `iglesia-resguardo-${fecha}.db`,
+    origen,
   });
   const kb = Math.max(1, Math.round(r.bytes / 1024));
   return `Resguardo guardado en ${r.ruta} (${kb} KB).`;

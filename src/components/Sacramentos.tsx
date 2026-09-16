@@ -25,6 +25,7 @@ import {
 } from "../lib/db";
 import { CertificadoDoc, CertificadoPrintable } from "./Certificado";
 import { logAccion } from "../lib/auditoria";
+import { mensajeError } from "../lib/errores";
 import { selloPng } from "../lib/sello";
 import { sembrarDemo } from "../lib/demo";
 import { ToastHost, useToasts } from "./Toasts";
@@ -191,6 +192,8 @@ export default function Sacramentos({ actual }: { actual: string }) {
   const [filtros, setFiltros] = useState<FiltrosActas>({ texto: "", tipo: "TODOS", fecha: "" });
   const [filas, setFilas] = useState<ActaRow[]>([]);
   const [cargando, setCargando] = useState(true);
+  const [pagina, setPagina] = useState(1);
+  const [porPagina, setPorPagina] = useState(5);
   const [formAbierto, setFormAbierto] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [form, setForm] = useState<SacramentoInput>({ ...SACRAMENTO_VACIO, fecha_sacramento: new Date().toISOString().slice(0, 10) });
@@ -235,6 +238,10 @@ export default function Sacramentos({ actual }: { actual: string }) {
     const t = setTimeout(() => recargar(filtros), 250);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtros]);
+
+  useEffect(() => {
+    setPagina(1);
   }, [filtros]);
 
   useEffect(() => {
@@ -297,7 +304,7 @@ export default function Sacramentos({ actual }: { actual: string }) {
       cargarConteo();
       avisar(eraEdicion ? "Acta actualizada." : "Acta guardada.");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Ocurrió un error.");
+      setError(mensajeError(e));
     }
   }
 
@@ -329,7 +336,7 @@ export default function Sacramentos({ actual }: { actual: string }) {
       cargarConteo();
       avisar(`Se cargaron ${n} actas de prueba.`);
     } catch (e) {
-      avisar(e instanceof Error ? e.message : "No se pudo cargar la demo.", "error");
+      avisar(mensajeError(e, "No se pudo cargar la demo."), "error");
     }
   }
 
@@ -339,6 +346,12 @@ export default function Sacramentos({ actual }: { actual: string }) {
 
   const totalActas = conteo.BAUTISMO + conteo.COMUNION + conteo.CONFIRMACION + conteo.MATRIMONIO;
   const hayFiltros = filtros.texto !== "" || filtros.tipo !== "TODOS" || filtros.fecha !== "";
+
+  const totalPaginas = Math.max(1, Math.ceil(filas.length / porPagina));
+  const pagSegura = Math.min(pagina, totalPaginas);
+  const visibles = filas.slice((pagSegura - 1) * porPagina, pagSegura * porPagina);
+  const desde = filas.length === 0 ? 0 : (pagSegura - 1) * porPagina + 1;
+  const hasta = Math.min(pagSegura * porPagina, filas.length);
 
   function limpiarFiltros() {
     setFiltros({ texto: "", tipo: "TODOS", fecha: "" });
@@ -426,6 +439,7 @@ export default function Sacramentos({ actual }: { actual: string }) {
             </div>
           )
         ) : (
+          <>
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-parroquia-100 dark:bg-noche-600 text-xs uppercase tracking-wide text-parroquia-900 dark:text-slate-300">
@@ -437,7 +451,7 @@ export default function Sacramentos({ actual }: { actual: string }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-slate-600">
-              {filas.map((r) => (
+              {visibles.map((r) => (
                 <tr
                   key={r.id}
                   className="hover:bg-slate-100 dark:hover:bg-slate-600/50 transition-colors"
@@ -501,6 +515,35 @@ export default function Sacramentos({ actual }: { actual: string }) {
               ))}
             </tbody>
           </table>
+          <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-t border-slate-200 dark:border-slate-600 text-sm text-slate-600 dark:text-slate-300">
+            <span className="tabular-nums">Mostrando {desde}–{hasta} de {filas.length}</span>
+            <label className="ml-auto flex items-center gap-1.5">
+              Por página
+              <select
+                className="border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1 bg-parroquia-100 dark:bg-noche-600 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-parroquia-700"
+                value={porPagina}
+                onChange={(e) => { setPorPagina(Number(e.target.value)); setPagina(1); }}
+              >
+                {[5, 10, 20, 50].map((n) => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </label>
+            <button
+              disabled={pagSegura <= 1}
+              onClick={() => setPagina(pagSegura - 1)}
+              className="border border-slate-300 dark:border-slate-500 rounded-lg px-3 py-1 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-40"
+            >
+              ‹ Anterior
+            </button>
+            <span className="tabular-nums">Página {pagSegura} de {totalPaginas}</span>
+            <button
+              disabled={pagSegura >= totalPaginas}
+              onClick={() => setPagina(pagSegura + 1)}
+              className="border border-slate-300 dark:border-slate-500 rounded-lg px-3 py-1 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-40"
+            >
+              Siguiente ›
+            </button>
+          </div>
+          </>
         )}
       </div>
 
