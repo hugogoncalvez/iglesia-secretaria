@@ -332,13 +332,6 @@ export async function initDb(): Promise<Mode> {
   return mode;
 }
 
-/** Cuenta filas de una tabla (solo uso interno). */
-async function contarFilas(tabla: string): Promise<number> {
-  if (!db) return 0;
-  const rows = await db.select<{ n: number }[]>(`SELECT COUNT(*) AS n FROM ${tabla}`);
-  return rows[0]?.n ?? 0;
-}
-
 const strV = (v: unknown): string => (v == null ? "" : String(v));
 const numV = (v: unknown): number | null => {
   if (v == null || v === "") return null; // Number(null) es 0: no convertir nulos en 0
@@ -391,25 +384,18 @@ const COLS_ACTA_MIG = [
 ];
 
 /**
- * Migración única: si SQLite está vacío pero hay datos en localStorage
- * (la app corrió en modo local), los importa. No borra el localStorage.
+ * Migración única (reintentable): si hay datos en localStorage y SQLite
+ * todavía no los tiene, los importa con INSERT OR REPLACE. No borra el
+ * localStorage. La marca con versión permite reejecutarla tras una
+ * migración parcial de versiones anteriores.
  */
 async function migrarLocalASqlite(): Promise<void> {
-  if (!db || localStorage.getItem(LS_MIGRADO) === "1") return;
-  const [np, na, nu] = await Promise.all([
-    contarFilas("personas"),
-    contarFilas("sacramentos"),
-    contarFilas("usuarios"),
-  ]);
-  if (np + na + nu > 0) {
-    localStorage.setItem(LS_MIGRADO, "1");
-    return;
-  }
+  if (!db || localStorage.getItem(LS_MIGRADO) === "2") return;
   const personas = lsRead<Record<string, unknown>>(LS_PERSONAS);
   const actas = lsRead<Record<string, unknown>>(LS_ACTAS);
   const usuarios = lsRead<Record<string, unknown>>(LS_USUARIOS_WEB);
   if (personas.length === 0 && actas.length === 0 && usuarios.length === 0) {
-    localStorage.setItem(LS_MIGRADO, "1");
+    localStorage.setItem(LS_MIGRADO, "2");
     return;
   }
   const idsPersonas = new Set<number>();
@@ -417,7 +403,7 @@ async function migrarLocalASqlite(): Promise<void> {
     const id = numV(r.id);
     const vals = COLS_PERSONA_MIG.map((c) => (c === "id" ? id : strV(r[c])));
     const res = await db.execute(
-      `INSERT INTO personas (${COLS_PERSONA_MIG.join(",")}) VALUES (${COLS_PERSONA_MIG.map((_, i) => `$${i + 1}`).join(",")})`,
+      `INSERT OR REPLACE INTO personas (${COLS_PERSONA_MIG.join(",")}) VALUES (${COLS_PERSONA_MIG.map((_, i) => `$${i + 1}`).join(",")})`,
       vals
     );
     // Personas sin id previo reciben autoincrement: remapear para las actas
@@ -441,13 +427,13 @@ async function migrarLocalASqlite(): Promise<void> {
     }
     const vals = COLS_ACTA_MIG.map((c) => (ids.has(c) ? numV(normalizada[c]) : strV(normalizada[c])));
     await db.execute(
-      `INSERT INTO sacramentos (${COLS_ACTA_MIG.join(",")}) VALUES (${COLS_ACTA_MIG.map((_, i) => `$${i + 1}`).join(",")})`,
+      `INSERT OR REPLACE INTO sacramentos (${COLS_ACTA_MIG.join(",")}) VALUES (${COLS_ACTA_MIG.map((_, i) => `$${i + 1}`).join(",")})`,
       vals
     );
   }
   for (const r of usuarios) {
     await db.execute(
-      "INSERT INTO usuarios (id, usuario, hash, creado_en, debe_cambiar) VALUES ($1,$2,$3,$4,$5)",
+      "INSERT OR REPLACE INTO usuarios (id, usuario, hash, creado_en, debe_cambiar) VALUES ($1,$2,$3,$4,$5)",
       [numV(r.id), strV(r.usuario), strV(r.hash), strV(r.creado_en) || new Date().toISOString(), numV(r.debe_cambiar) ?? 0]
     );
   }
@@ -459,7 +445,7 @@ async function migrarLocalASqlite(): Promise<void> {
   } catch {
     /* config opcional */
   }
-  localStorage.setItem(LS_MIGRADO, "1");
+  localStorage.setItem(LS_MIGRADO, "2");
 }
 
 export function getMode(): Mode {

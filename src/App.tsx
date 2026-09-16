@@ -7,7 +7,8 @@ import Configuracion from "./components/Configuracion";
 import Auditoria from "./components/Auditoria";
 import CambioClaveObligatorio from "./components/CambioClaveObligatorio";
 import Sidebar, { type Vista } from "./components/Sidebar";
-import { initDb, getMode } from "./lib/db";
+import { ToastHost, useToasts } from "./components/Toasts";
+import { initDb, getMode, isTauri, infoBase } from "./lib/db";
 import {
   ensureDefaultUser,
   getSession,
@@ -32,6 +33,8 @@ export default function App() {
   const [vista, setVista] = useState<Vista>("actas");
   const [debeCambiarClave, setDebeCambiarClave] = useState(false);
   const [avisoAdmin, setAvisoAdmin] = useState(false);
+  const [avisoLocal, setAvisoLocal] = useState<string | null>(null);
+  const { items: avisosApp, push: avisarApp } = useToasts();
   const [colapsada, setColapsada] = useState(
     () => localStorage.getItem("iglesia_sidebar") === "colapsada"
   );
@@ -65,6 +68,16 @@ export default function App() {
     (async () => {
       await initDb();
       setPrimerArranque(await ensureDefaultUser());
+      try {
+        const b = await infoBase();
+        if (isTauri() && b.modo === "local") {
+          setAvisoLocal(
+            `La base de datos no está disponible (${b.motivo ?? "SQLite no disponible"}). Los datos se guardan solo en este equipo. Avisá al desarrollador.`
+          );
+        }
+      } catch {
+        /* sin aviso */
+      }
       const s = getSession();
       if (s) {
         setUsuario(s);
@@ -74,6 +87,12 @@ export default function App() {
       setLista(true);
     })();
   }, []);
+
+  // Toast al entrar a la app (el host vive en la pantalla principal)
+  useEffect(() => {
+    if (usuario && avisoLocal) avisarApp(avisoLocal, "error");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [usuario]);
 
   if (!lista) {
     return (
@@ -153,6 +172,17 @@ export default function App() {
           </div>
         )}
 
+        {avisoLocal && (
+          <div className="no-print bg-red-50 dark:bg-red-900/40 border-b border-red-200 dark:border-red-700 px-4 py-2 text-sm text-red-900 dark:text-red-100 flex items-center gap-3">
+            <p className="flex-1">
+              {avisoLocal} Contacto soporte: hugogoncalvez@gmail.com
+            </p>
+            <button onClick={() => setVista("config")} className="underline font-medium">
+              Ver base
+            </button>
+          </div>
+        )}
+
         <main className="no-print max-w-5xl w-full mx-auto p-4 animate-fade-in" key={vista}>
           {vista === "actas" ? (
             <Sacramentos actual={usuario} />
@@ -164,6 +194,7 @@ export default function App() {
             <Configuracion actual={usuario} />
           )}
         </main>
+        <ToastHost items={avisosApp} />
       </div>
     </div>
   );
