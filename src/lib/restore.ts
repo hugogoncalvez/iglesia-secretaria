@@ -272,6 +272,15 @@ export async function aplicarRestauracion(d: DatosResguardo): Promise<void> {
         valor,
       ]);
     }
+    if (d.auditoria.length > 0) {
+      await sqlExecute("DELETE FROM auditoria");
+      for (const r of d.auditoria) {
+        await sqlExecute(
+          "INSERT INTO auditoria (id, fecha_hora, usuario, accion, detalle) VALUES ($1,$2,$3,$4,$5)",
+          [num(r.id), str(r.fecha_hora), str(r.usuario), str(r.accion), str(r.detalle)]
+        );
+      }
+    }
   } else {
     const sacramentosNorm = d.sacramentos.map((r) => {
       const n: Fila = { ...r };

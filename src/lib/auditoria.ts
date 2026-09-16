@@ -81,7 +81,7 @@ export async function logAccion(
     if (getMode() === "sqlite") {
       await sqlExecute(
         "INSERT INTO auditoria (fecha_hora, usuario, accion, detalle) VALUES ($1,$2,$3,$4)",
-        [usuario, accion, detalle, fh]
+        [fh, usuario, accion, detalle]
       );
       return;
     }

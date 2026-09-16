@@ -436,7 +436,7 @@ async function migrarLocalASqlite(): Promise<void> {
   for (const r of usuarios) {
     await db.execute(
       "INSERT INTO usuarios (id, usuario, hash, creado_en, debe_cambiar) VALUES ($1,$2,$3,$4,$5)",
-      [numV(r.id), strV(r.usuario), strV(r.creado_en) || new Date().toISOString(), numV(r.debe_cambiar) ?? 0]
+      [numV(r.id), strV(r.usuario), strV(r.hash), strV(r.creado_en) || new Date().toISOString(), numV(r.debe_cambiar) ?? 0]
     );
   }
   try {
