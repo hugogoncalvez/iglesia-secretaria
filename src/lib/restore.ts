@@ -27,6 +27,7 @@ export interface ResumenCopia {
 
 const str = (v: unknown): string => (v == null ? "" : String(v));
 const num = (v: unknown): number | null => {
+  if (v == null || v === "") return null; // Number(null) es 0: no convertir nulos en 0
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 };

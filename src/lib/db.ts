@@ -341,6 +341,7 @@ async function contarFilas(tabla: string): Promise<number> {
 
 const strV = (v: unknown): string => (v == null ? "" : String(v));
 const numV = (v: unknown): number | null => {
+  if (v == null || v === "") return null; // Number(null) es 0: no convertir nulos en 0
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 };
@@ -411,14 +412,20 @@ async function migrarLocalASqlite(): Promise<void> {
     localStorage.setItem(LS_MIGRADO, "1");
     return;
   }
+  const idsPersonas = new Set<number>();
   for (const r of personas) {
-    const vals = COLS_PERSONA_MIG.map((c) => (c === "id" ? numV(r[c]) : strV(r[c])));
-    await db.execute(
+    const id = numV(r.id);
+    const vals = COLS_PERSONA_MIG.map((c) => (c === "id" ? id : strV(r[c])));
+    const res = await db.execute(
       `INSERT INTO personas (${COLS_PERSONA_MIG.join(",")}) VALUES (${COLS_PERSONA_MIG.map((_, i) => `$${i + 1}`).join(",")})`,
       vals
     );
+    // Personas sin id previo reciben autoincrement: remapear para las actas
+    if (id != null) idsPersonas.add(id);
+    else if (res.lastInsertId != null) idsPersonas.add(res.lastInsertId);
   }
   const ids = new Set(["id", "persona_id", "esposo_persona_id", "esposa_persona_id"]);
+  const refs = ["persona_id", "esposo_persona_id", "esposa_persona_id"];
   for (const r of actas) {
     const normalizada: Record<string, unknown> = { ...r };
     if (!strV(normalizada.padrino) && normalizada.testigo_1 != null) {
@@ -426,6 +433,11 @@ async function migrarLocalASqlite(): Promise<void> {
     }
     if (!strV(normalizada.madrina) && normalizada.testigo_2 != null) {
       normalizada.madrina = normalizada.testigo_2;
+    }
+    // Referencias a personas inexistentes se anulan en vez de romper la FK
+    for (const k of refs) {
+      const v = numV(normalizada[k]);
+      normalizada[k] = v != null && idsPersonas.has(v) ? v : null;
     }
     const vals = COLS_ACTA_MIG.map((c) => (ids.has(c) ? numV(normalizada[c]) : strV(normalizada[c])));
     await db.execute(
