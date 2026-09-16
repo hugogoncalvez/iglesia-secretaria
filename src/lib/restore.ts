@@ -12,6 +12,7 @@ export interface DatosResguardo {
   personas: Fila[];
   sacramentos: Fila[];
   usuarios: Fila[];
+  auditoria: Fila[];
   config: Record<string, string>;
   fecha?: string;
 }
@@ -65,7 +66,7 @@ async function leerDb(path: string): Promise<DatosResguardo> {
   ]);
   const cfg: Record<string, string> = {};
   for (const r of config) cfg[String(r.clave)] = String(r.valor ?? "");
-  return { personas, sacramentos, usuarios, config: cfg };
+  return { personas, sacramentos, usuarios, auditoria: [], config: cfg };
 }
 
 /** Valida un JSON de resguardo (modo web o archivo .json). */
@@ -95,6 +96,7 @@ export function validarJsonResguardo(texto: string): DatosResguardo {
     personas: arr("personas"),
     sacramentos: arr("sacramentos"),
     usuarios: arr("usuarios"),
+    auditoria: arr("auditoria"),
     config: cfg,
     fecha: typeof o.exported_at === "string" ? o.exported_at : undefined,
   };
@@ -282,6 +284,9 @@ export async function aplicarRestauracion(d: DatosResguardo): Promise<void> {
     localStorage.setItem(LS_KEYS.personas, JSON.stringify(d.personas));
     localStorage.setItem(LS_KEYS.actas, JSON.stringify(sacramentosNorm));
     localStorage.setItem(LS_USUARIOS_KEY, JSON.stringify(d.usuarios));
+    if (d.auditoria.length > 0) {
+      localStorage.setItem("iglesia_auditoria", JSON.stringify(d.auditoria));
+    }
     localStorage.setItem(LS_KEYS.config, JSON.stringify(d.config));
     let maxId = 0;
     for (const r of [...d.personas, ...d.sacramentos, ...d.usuarios]) {

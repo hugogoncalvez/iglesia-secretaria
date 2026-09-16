@@ -1,5 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
-import { dumpLocalJSON, isTauri, sqlExecute, sqlSelect } from "./db";
+import { save } from "@tauri-apps/plugin-dialog";
+import { writeTextFile } from "@tauri-apps/plugin-fs";
+import { dumpLocalJSON, getMode, isTauri, sqlExecute, sqlSelect } from "./db";
 import { volcarUsuarios } from "./auth";
 
 interface ResguardoOk {
@@ -7,21 +9,24 @@ interface ResguardoOk {
   bytes: number;
 }
 
+async function volcadoJSON(): Promise<string> {
+  const datos = JSON.parse(await dumpLocalJSON()) as Record<string, unknown>;
+  datos.usuarios = volcarUsuarios();
+  return JSON.stringify(datos, null, 2);
+}
+
 /**
  * Resguardo de datos.
- * - En la app instalada (Tauri): un solo comando nativo muestra el diálogo,
- *   copia iglesia.db y verifica que el archivo quedó creado.
- *   Devuelve mensaje con la ruta.
- * - En modo web (pnpm dev): descarga un JSON con todo el contenido.
+ * - En la app instalada (Tauri) con SQLite: un solo comando nativo muestra
+ *   el diálogo, copia iglesia.db y verifica que el archivo quedó creado.
+ * - En modo local (web o fallback): guarda un JSON con todo el contenido.
  * Lanza Error("cancelado") si el usuario cierra el diálogo.
  */
 export async function hacerBackup(): Promise<string> {
   const fecha = new Date().toISOString().slice(0, 10);
 
   if (!isTauri()) {
-    const datos = JSON.parse(await dumpLocalJSON()) as Record<string, unknown>;
-    datos.usuarios = volcarUsuarios();
-    const json = JSON.stringify(datos, null, 2);
+    const json = await volcadoJSON();
     const blob = new Blob([json], { type: "application/json;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -29,6 +34,18 @@ export async function hacerBackup(): Promise<string> {
     a.click();
     URL.revokeObjectURL(a.href);
     return "Resguardo descargado (modo web). En la app instalada se copia el archivo iglesia.db.";
+  }
+
+  if (getMode() === "local") {
+    // Sin SQLite no hay .db que copiar: se guarda el JSON en la ruta elegida.
+    // El diálogo otorga permiso de escritura sobre el destino.
+    const destino = await save({
+      defaultPath: `iglesia-resguardo-${fecha}.json`,
+      filters: [{ name: "Resguardo JSON", extensions: ["json"] }],
+    });
+    if (!destino) throw new Error("cancelado");
+    await writeTextFile(destino, await volcadoJSON());
+    return `Resguardo JSON guardado en ${destino}.`;
   }
 
   // Asegura consistencia del archivo antes de copiarlo

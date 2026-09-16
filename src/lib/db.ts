@@ -1,5 +1,5 @@
 import Database from "@tauri-apps/plugin-sql";
-import { esNoSqlite } from "./errores";
+import { esNoSqlite, mensajeError } from "./errores";
 
 // Modelo según actas de los libros:
 // - personas: registro único de personas (niño/a, contrayentes, etc.)
@@ -151,11 +151,16 @@ type Mode = "sqlite" | "local";
 let mode: Mode = "local";
 let db: Database | null = null;
 let initialized = false;
+/** Por qué se cayó a modo local (visible en Configuración → Acerca de). */
+let motivoLocal: string | null = null;
 
 const LS_PERSONAS = "iglesia_personas";
 const LS_ACTAS = "iglesia_sacramentos";
 const LS_IDS = "iglesia_ids";
 const LS_CONFIG = "iglesia_config";
+const LS_USUARIOS_WEB = "iglesia_usuarios"; // misma clave que auth.ts (sin importar: evita ciclo)
+const LS_AUDITORIA_WEB = "iglesia_auditoria"; // misma clave que auditoria.ts
+const LS_MIGRADO = "iglesia_migrado_sqlite";
 
 /** Claves de localStorage (modo web) para resguardo/restauración. */
 export const LS_KEYS = {
@@ -238,6 +243,7 @@ export async function initDb(): Promise<Mode> {
 
   if (!isTauri()) {
     mode = "local";
+    motivoLocal = "navegador web (sin Tauri)";
     return mode;
   }
 
@@ -314,21 +320,142 @@ export async function initDb(): Promise<Mode> {
         detalle TEXT NOT NULL DEFAULT ''
       );
     `);
+    await migrarLocalASqlite();
     mode = "sqlite";
-  } catch {
-    // Fuera de Tauri (pnpm dev web) o sin plugin: modo local
+    motivoLocal = null;
+  } catch (e) {
+    // Sin plugin o sin permiso: modo local (los datos quedan en el equipo)
     db = null;
     mode = "local";
+    motivoLocal = mensajeError(e, "SQLite no disponible");
   }
   return mode;
+}
+
+/** Cuenta filas de una tabla (solo uso interno). */
+async function contarFilas(tabla: string): Promise<number> {
+  if (!db) return 0;
+  const rows = await db.select<{ n: number }[]>(`SELECT COUNT(*) AS n FROM ${tabla}`);
+  return rows[0]?.n ?? 0;
+}
+
+const strV = (v: unknown): string => (v == null ? "" : String(v));
+const numV = (v: unknown): number | null => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+};
+
+const COLS_PERSONA_MIG = [
+  "id",
+  "apellido_nombres",
+  "documento",
+  "fecha_nacimiento",
+  "lugar_nacimiento",
+  "nacionalidad",
+  "domicilio",
+  "telefono",
+  "nombre_padre",
+  "nombre_madre",
+];
+
+const COLS_ACTA_MIG = [
+  "id",
+  "persona_id",
+  "esposo_persona_id",
+  "esposa_persona_id",
+  "tipo",
+  "fecha_sacramento",
+  "ministro_celebrante",
+  "libro",
+  "folio",
+  "parroquia_capilla",
+  "padrino",
+  "madrina",
+  "notas_marginales",
+  "bautizado_en_parroquia",
+  "domicilio_matrimonial",
+  "referencia_folios",
+  "esposo_baut_lugar",
+  "esposo_baut_fecha",
+  "esposo_baut_libro",
+  "esposo_baut_folio",
+  "esposa_baut_lugar",
+  "esposa_baut_fecha",
+  "esposa_baut_libro",
+  "esposa_baut_folio",
+  "conf_baut_lugar",
+  "conf_baut_fecha",
+  "conf_baut_libro",
+  "conf_baut_folio",
+];
+
+/**
+ * Migración única: si SQLite está vacío pero hay datos en localStorage
+ * (la app corrió en modo local), los importa. No borra el localStorage.
+ */
+async function migrarLocalASqlite(): Promise<void> {
+  if (!db || localStorage.getItem(LS_MIGRADO) === "1") return;
+  const [np, na, nu] = await Promise.all([
+    contarFilas("personas"),
+    contarFilas("sacramentos"),
+    contarFilas("usuarios"),
+  ]);
+  if (np + na + nu > 0) {
+    localStorage.setItem(LS_MIGRADO, "1");
+    return;
+  }
+  const personas = lsRead<Record<string, unknown>>(LS_PERSONAS);
+  const actas = lsRead<Record<string, unknown>>(LS_ACTAS);
+  const usuarios = lsRead<Record<string, unknown>>(LS_USUARIOS_WEB);
+  if (personas.length === 0 && actas.length === 0 && usuarios.length === 0) {
+    localStorage.setItem(LS_MIGRADO, "1");
+    return;
+  }
+  for (const r of personas) {
+    const vals = COLS_PERSONA_MIG.map((c) => (c === "id" ? numV(r[c]) : strV(r[c])));
+    await db.execute(
+      `INSERT INTO personas (${COLS_PERSONA_MIG.join(",")}) VALUES (${COLS_PERSONA_MIG.map((_, i) => `$${i + 1}`).join(",")})`,
+      vals
+    );
+  }
+  const ids = new Set(["id", "persona_id", "esposo_persona_id", "esposa_persona_id"]);
+  for (const r of actas) {
+    const normalizada: Record<string, unknown> = { ...r };
+    if (!strV(normalizada.padrino) && normalizada.testigo_1 != null) {
+      normalizada.padrino = normalizada.testigo_1;
+    }
+    if (!strV(normalizada.madrina) && normalizada.testigo_2 != null) {
+      normalizada.madrina = normalizada.testigo_2;
+    }
+    const vals = COLS_ACTA_MIG.map((c) => (ids.has(c) ? numV(normalizada[c]) : strV(normalizada[c])));
+    await db.execute(
+      `INSERT INTO sacramentos (${COLS_ACTA_MIG.join(",")}) VALUES (${COLS_ACTA_MIG.map((_, i) => `$${i + 1}`).join(",")})`,
+      vals
+    );
+  }
+  for (const r of usuarios) {
+    await db.execute(
+      "INSERT INTO usuarios (id, usuario, hash, creado_en, debe_cambiar) VALUES ($1,$2,$3,$4,$5)",
+      [numV(r.id), strV(r.usuario), strV(r.creado_en) || new Date().toISOString(), numV(r.debe_cambiar) ?? 0]
+    );
+  }
+  try {
+    const cfg = JSON.parse(localStorage.getItem(LS_CONFIG) ?? "{}") as Record<string, unknown>;
+    for (const [clave, valor] of Object.entries(cfg)) {
+      await db.execute("INSERT OR REPLACE INTO config (clave, valor) VALUES ($1,$2)", [clave, String(valor ?? "")]);
+    }
+  } catch {
+    /* config opcional */
+  }
+  localStorage.setItem(LS_MIGRADO, "1");
 }
 
 export function getMode(): Mode {
   return mode;
 }
 
-/** Modo y ruta real de la base (para diagnóstico en Configuración). */
-export async function infoBase(): Promise<{ modo: Mode; ruta: string }> {
+/** Modo, ruta real y motivo del modo local (para diagnóstico en Configuración). */
+export async function infoBase(): Promise<{ modo: Mode; ruta: string; motivo: string | null }> {
   await initDb();
   if (mode === "sqlite" && db) {
     try {
@@ -336,12 +463,12 @@ export async function infoBase(): Promise<{ modo: Mode; ruta: string }> {
         "PRAGMA database_list"
       );
       const main = rows.find((r) => r.name === "main");
-      return { modo: mode, ruta: main?.file || "(ruta no informada por SQLite)" };
+      return { modo: mode, ruta: main?.file || "(ruta no informada por SQLite)", motivo: null };
     } catch {
-      return { modo: mode, ruta: "(no se pudo leer la ruta)" };
+      return { modo: mode, ruta: "(no se pudo leer la ruta)", motivo: null };
     }
   }
-  return { modo: mode, ruta: "localStorage del equipo (modo web)" };
+  return { modo: mode, ruta: "localStorage del equipo (modo web)", motivo: motivoLocal };
 }
 
 export async function listActas(f: FiltrosActas): Promise<ActaRow[]> {
@@ -859,7 +986,7 @@ export async function saveConfig(cfg: ParishConfig): Promise<void> {
   }
 }
 
-/** Volcado JSON para resguardo en modo web (en Tauri se copia el .db). */
+/** Volcado JSON para resguardo en modo local (en SQLite se copia el .db). */
 export async function dumpLocalJSON(): Promise<string> {
   return JSON.stringify(
     {
@@ -868,6 +995,7 @@ export async function dumpLocalJSON(): Promise<string> {
       config: await getConfig(),
       personas: lsRead<Persona>(LS_PERSONAS),
       sacramentos: lsRead<Record<string, unknown>>(LS_ACTAS),
+      auditoria: lsRead<Record<string, unknown>>(LS_AUDITORIA_WEB),
     },
     null,
     2

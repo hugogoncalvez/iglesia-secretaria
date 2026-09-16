@@ -31,7 +31,15 @@ export default function Configuracion({ actual }: { actual: string }) {
   useEffect(() => {
     getConfig().then(setCfg);
     infoBase()
-      .then((b) => setBaseInfo(b.modo === "sqlite" ? `SQLite — ${b.ruta}` : b.ruta))
+      .then((b) =>
+        setBaseInfo(
+          b.modo === "sqlite"
+            ? `SQLite — ${b.ruta}`
+            : b.motivo
+              ? `localStorage — motivo: ${b.motivo}`
+              : b.ruta
+        )
+      )
       .catch(() => setBaseInfo("No se pudo determinar."));
   }, []);
 
