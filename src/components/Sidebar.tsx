@@ -1,13 +1,14 @@
-import { BookOpenText, ChevronsLeft, ChevronsRight, History, Settings, Users } from "lucide-react";
+import { BookOpenText, ChartColumn, ChevronsLeft, ChevronsRight, History, Settings, Users } from "lucide-react";
 import logoUrl from "../assets/logo.svg";
 
-export type Vista = "actas" | "usuarios" | "config" | "auditoria";
+export type Vista = "actas" | "usuarios" | "config" | "auditoria" | "estadisticas";
 
 const ITEMS = [
   { id: "actas", label: "Actas", icon: BookOpenText },
   { id: "usuarios", label: "Usuarios", icon: Users },
   { id: "config", label: "Configuración", icon: Settings },
   { id: "auditoria", label: "Auditoría", icon: History },
+  { id: "estadisticas", label: "Estadísticas", icon: ChartColumn },
 ] as const;
 
 export default function Sidebar({

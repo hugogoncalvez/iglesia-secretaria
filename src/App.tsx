@@ -5,6 +5,7 @@ import Sacramentos from "./components/Sacramentos";
 import Usuarios from "./components/Usuarios";
 import Configuracion from "./components/Configuracion";
 import Auditoria from "./components/Auditoria";
+import Estadisticas from "./components/Estadisticas";
 import CambioClaveObligatorio from "./components/CambioClaveObligatorio";
 import Sidebar, { type Vista } from "./components/Sidebar";
 import { ToastHost, useToasts } from "./components/Toasts";
@@ -24,6 +25,7 @@ const TITULOS: Record<Vista, string> = {
   usuarios: "Usuarios",
   config: "Configuración",
   auditoria: "Auditoría",
+  estadisticas: "Estadísticas",
 };
 
 export default function App() {
@@ -190,6 +192,8 @@ export default function App() {
             <Usuarios actual={usuario} onChange={recheckAviso} />
           ) : vista === "auditoria" ? (
             <Auditoria />
+          ) : vista === "estadisticas" ? (
+            <Estadisticas />
           ) : (
             <Configuracion actual={usuario} />
           )}
