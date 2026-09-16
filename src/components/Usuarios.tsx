@@ -15,6 +15,7 @@ export default function Usuarios({ actual, onChange }: { actual: string; onChang
   const [nuevo, setNuevo] = useState("");
   const [claveNueva, setClaveNueva] = useState("");
   const [cambiando, setCambiando] = useState<string | null>(null);
+  const [eliminando, setEliminando] = useState<string | null>(null);
   const [claveCambio, setClaveCambio] = useState("");
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
@@ -79,7 +80,13 @@ export default function Usuarios({ actual, onChange }: { actual: string; onChang
       fail("Debe quedar al menos un usuario.");
       return;
     }
-    if (!confirm(`¿Eliminar el usuario "${u}"?`)) return;
+    setEliminando(u);
+  }
+
+  async function confirmarBorrado() {
+    if (!eliminando) return;
+    const u = eliminando;
+    setEliminando(null);
     try {
       await eliminarUsuario(u);
       void logAccion(actual, "USUARIO_ELIMINAR", `Usuario "${u}" eliminado.`);
@@ -179,6 +186,37 @@ export default function Usuarios({ actual, onChange }: { actual: string; onChang
           </tbody>
         </table>
       </div>
+
+      {eliminando && (
+        <div className="no-print fixed inset-0 z-40 bg-black/40 flex items-center justify-center p-4" onClick={() => setEliminando(null)}>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-noche-700 dark:text-slate-100 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 max-w-md w-full p-5 space-y-3 animate-modal-in"
+          >
+            <h3 className="font-display font-bold text-lg">Eliminar usuario</h3>
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              ¿Eliminar el usuario <b>{eliminando}</b>?
+            </p>
+            <p className="text-xs text-red-600 dark:text-red-400">
+              Esta acción no se puede deshacer.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setEliminando(null)}
+                className="border border-slate-300 dark:border-slate-500 rounded-lg px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmarBorrado}
+                className="bg-red-700 hover:bg-red-800 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+              >
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

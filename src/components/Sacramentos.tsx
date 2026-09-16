@@ -199,6 +199,7 @@ export default function Sacramentos({ actual }: { actual: string }) {
   const [form, setForm] = useState<SacramentoInput>({ ...SACRAMENTO_VACIO, fecha_sacramento: new Date().toISOString().slice(0, 10) });
   const [error, setError] = useState("");
   const [viendo, setViendo] = useState<ActaDetalle | null>(null);
+  const [borrando, setBorrando] = useState<ActaRow | null>(null);
   const [imprimiendo, setImprimiendo] = useState<ActaDetalle | null>(null);
   const [cfg, setCfg] = useState<ParishConfig>(DEFAULT_PARISH);
   const [sello, setSello] = useState<string | null>(null);
@@ -245,13 +246,13 @@ export default function Sacramentos({ actual }: { actual: string }) {
   }, [filtros]);
 
   useEffect(() => {
-    if (!formAbierto) return;
+    if (!formAbierto && !borrando) return;
     const h = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setFormAbierto(false);
+      if (e.key === "Escape") { setFormAbierto(false); setBorrando(null); }
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
-  }, [formAbierto]);
+  }, [formAbierto, borrando]);
 
   function abrirNuevo() {
     setEditId(null);
@@ -308,8 +309,10 @@ export default function Sacramentos({ actual }: { actual: string }) {
     }
   }
 
-  async function borrar(r: ActaRow) {
-    if (!confirm(`¿Eliminar el acta de "${nombreActa(r)}"?`)) return;
+  async function confirmarBorrado() {
+    if (!borrando) return;
+    const r = borrando;
+    setBorrando(null);
     await eliminarActa(r.id);
     void logAccion(actual, "ACTA_ELIMINAR", `${r.tipo} — ${nombreActa(r)} (Libro ${r.libro || "—"}, Folio ${r.folio || "—"})`);
     recargar(filtros);
@@ -504,7 +507,7 @@ export default function Sacramentos({ actual }: { actual: string }) {
                       </button>
                       <button
                         title="Eliminar"
-                        onClick={() => borrar(r)}
+                        onClick={() => setBorrando(r)}
                         className="p-1.5 rounded hover:bg-red-100 dark:hover:bg-red-900/40 text-red-500 dark:text-red-400 transition-colors"
                       >
                         <Trash2 size={15} />
@@ -683,6 +686,38 @@ export default function Sacramentos({ actual }: { actual: string }) {
           onClose={() => setViendo(null)}
           onCertificado={() => { const id = viendo.id; setViendo(null); certificado(id); }}
         />
+      )}
+
+      {/* Confirmar eliminación */}
+      {borrando && (
+        <div className="no-print fixed inset-y-0 right-0 left-[var(--sidebar-w,0px)] z-40 bg-black/40 flex items-center justify-center p-4" onClick={() => setBorrando(null)}>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-noche-700 dark:text-slate-100 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 max-w-md w-full p-5 space-y-3 animate-modal-in"
+          >
+            <h3 className="font-display font-bold text-lg">Eliminar acta</h3>
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              ¿Eliminar el acta de <b>{nombreActa(borrando)}</b> ({borrando.tipo} — Libro {borrando.libro || "—"}, Folio {borrando.folio || "—"})?
+            </p>
+            <p className="text-xs text-red-600 dark:text-red-400">
+              Esta acción no se puede deshacer. Conviene tener un resguardo al día.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setBorrando(null)}
+                className="border border-slate-300 dark:border-slate-500 rounded-lg px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmarBorrado}
+                className="bg-red-700 hover:bg-red-800 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+              >
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Certificado */}
