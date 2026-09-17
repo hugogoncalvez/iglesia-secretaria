@@ -153,37 +153,53 @@ function BautismoPrevio({
   form,
   prefijo,
   onChange,
+  noBautizado,
+  onToggleNoBautizado,
 }: {
   titulo: string;
   form: SacramentoInput;
   prefijo: "esposo_baut" | "esposa_baut" | "conf_baut";
   onChange: (patch: Partial<SacramentoInput>) => void;
+  noBautizado?: boolean;
+  onToggleNoBautizado?: (v: boolean) => void;
 }) {
   const v = (k: "lugar" | "fecha" | "libro" | "folio"): string =>
     String(form[`${prefijo}_${k}` as keyof SacramentoInput] ?? "");
   const set = (k: "lugar" | "fecha" | "libro" | "folio") => (e: React.ChangeEvent<HTMLInputElement>) =>
     onChange({ [`${prefijo}_${k}`]: e.target.value } as Partial<SacramentoInput>);
+  const deshab = noBautizado === true;
   return (
     <fieldset className="border dark:border-slate-500 rounded-lg p-3 grid grid-cols-1 md:grid-cols-6 gap-3">
       <legend className="text-sm font-bold px-1">{titulo}</legend>
+      {onToggleNoBautizado && (
+        <label className="md:col-span-6 flex items-center gap-2 text-sm font-medium cursor-pointer select-none">
+          <input
+            type="checkbox"
+            className="w-4 h-4"
+            checked={!!noBautizado}
+            onChange={(e) => onToggleNoBautizado(e.target.checked)}
+          />
+          No bautizado
+        </label>
+      )}
       <div className="md:col-span-2">
         <Campo label="Bautizado en">
-          <input className={inputCls} value={v("lugar")} onChange={set("lugar")} />
+          <input className={inputCls} value={v("lugar")} onChange={set("lugar")} disabled={deshab} />
         </Campo>
       </div>
       <div className="md:col-span-2">
         <Campo label="Fecha de bautismo">
-          <input type="date" className={inputCls} value={v("fecha")} onChange={set("fecha")} />
+          <input type="date" className={inputCls} value={v("fecha")} onChange={set("fecha")} disabled={deshab} />
         </Campo>
       </div>
       <div className="md:col-span-1">
         <Campo label="Libro N°">
-          <input className={inputCls} value={v("libro")} onChange={set("libro")} />
+          <input className={inputCls} value={v("libro")} onChange={set("libro")} disabled={deshab} />
         </Campo>
       </div>
       <div className="md:col-span-1">
         <Campo label="Folio">
-          <input className={inputCls} value={v("folio")} onChange={set("folio")} />
+          <input className={inputCls} value={v("folio")} onChange={set("folio")} disabled={deshab} />
         </Campo>
       </div>
     </fieldset>
@@ -299,24 +315,34 @@ export default function Sacramentos({ actual }: { actual: string }) {
     e.preventDefault();
     setError("");
     try {
-      if (form.tipo === "MATRIMONIO") {
-        if (!form.esposo.apellido_nombres.trim() || !form.esposa.apellido_nombres.trim())
+      // Si se tildó "No bautizado", los datos de bautismo no tienen sentido: se limpian.
+      const datos: SacramentoInput = {
+        ...form,
+        ...(form.esposo_no_baut
+          ? { esposo_baut_lugar: "", esposo_baut_fecha: "", esposo_baut_libro: "", esposo_baut_folio: "" }
+          : {}),
+        ...(form.esposa_no_baut
+          ? { esposa_baut_lugar: "", esposa_baut_fecha: "", esposa_baut_libro: "", esposa_baut_folio: "" }
+          : {}),
+      };
+      if (datos.tipo === "MATRIMONIO") {
+        if (!datos.esposo.apellido_nombres.trim() || !datos.esposa.apellido_nombres.trim())
           throw new Error("Cargá apellido y nombres de ambos contrayentes.");
-      } else if (!form.persona.apellido_nombres.trim()) {
+      } else if (!datos.persona.apellido_nombres.trim()) {
         throw new Error("Cargá apellido y nombres.");
       }
-      if (!form.fecha_sacramento) throw new Error("Cargá la fecha del sacramento.");
+      if (!datos.fecha_sacramento) throw new Error("Cargá la fecha del sacramento.");
       const eraEdicion = editId !== null;
-      if (editId) await actualizarActa(editId, form);
-      else await crearActa(form);
+      if (editId) await actualizarActa(editId, datos);
+      else await crearActa(datos);
       const titular =
-        form.tipo === "MATRIMONIO"
-          ? `${form.esposo.apellido_nombres} y ${form.esposa.apellido_nombres}`
-          : form.persona.apellido_nombres;
+        datos.tipo === "MATRIMONIO"
+          ? `${datos.esposo.apellido_nombres} y ${datos.esposa.apellido_nombres}`
+          : datos.persona.apellido_nombres;
       void logAccion(
         actual,
         eraEdicion ? "ACTA_EDITAR" : "ACTA_CREAR",
-        `${form.tipo} — ${titular} (Libro ${form.libro || "—"}, Folio ${form.folio || "—"})`
+        `${datos.tipo} — ${titular} (Libro ${datos.libro || "—"}, Folio ${datos.folio || "—"})`
       );
       setFormAbierto(false);
       recargar(filtros);
@@ -612,6 +638,16 @@ export default function Sacramentos({ actual }: { actual: string }) {
                   form={form}
                   prefijo="esposo_baut"
                   onChange={(patch) => setForm({ ...form, ...patch })}
+                  noBautizado={form.esposo_no_baut}
+                  onToggleNoBautizado={(v) =>
+                    setForm({
+                      ...form,
+                      esposo_no_baut: v,
+                      ...(v
+                        ? { esposo_baut_lugar: "", esposo_baut_fecha: "", esposo_baut_libro: "", esposo_baut_folio: "" }
+                        : {}),
+                    })
+                  }
                 />
                 <PersonaForm titulo="Esposa" value={f.esposa} onChange={(p) => setForm({ ...form, esposa: p })} />
                 <BautismoPrevio
@@ -619,6 +655,16 @@ export default function Sacramentos({ actual }: { actual: string }) {
                   form={form}
                   prefijo="esposa_baut"
                   onChange={(patch) => setForm({ ...form, ...patch })}
+                  noBautizado={form.esposa_no_baut}
+                  onToggleNoBautizado={(v) =>
+                    setForm({
+                      ...form,
+                      esposa_no_baut: v,
+                      ...(v
+                        ? { esposa_baut_lugar: "", esposa_baut_fecha: "", esposa_baut_libro: "", esposa_baut_folio: "" }
+                        : {}),
+                    })
+                  }
                 />
               </>
             ) : (
@@ -954,7 +1000,8 @@ function LegajoModal({
   );
 }
 
-function textoBautismo(a: ActaDetalle, prefijo: "esposo_baut" | "esposa_baut" | "conf_baut"): string {
+function textoBautismo(a: ActaDetalle, prefijo: "esposo_baut" | "esposa_baut" | "conf_baut", noBaut?: boolean): string {
+  if (noBaut) return "No bautizado";
   const g = (k: "lugar" | "fecha" | "libro" | "folio"): string =>
     String(a[`${prefijo}_${k}` as keyof ActaDetalle] ?? "");
   const lugar = g("lugar"), fecha = g("fecha"), libro = g("libro"), folio = g("folio");
@@ -981,8 +1028,8 @@ function DetalleModal({ a, onClose, onCertificado }: { a: ActaDetalle; onClose: 
   if (a.tipo === "BAUTISMO") Filas.push(["Padrinos", `${a.padrino || "—"} / ${a.madrina || "—"}`]);
   if (a.tipo === "CONFIRMACION") Filas.push(["Bautismo previo", textoBautismo(a, "conf_baut")]);
   if (a.tipo === "MATRIMONIO") {
-    Filas.push(["Bautismo del esposo", textoBautismo(a, "esposo_baut")]);
-    Filas.push(["Bautismo de la esposa", textoBautismo(a, "esposa_baut")]);
+    Filas.push(["Bautismo del esposo", textoBautismo(a, "esposo_baut", a.esposo_no_baut)]);
+    Filas.push(["Bautismo de la esposa", textoBautismo(a, "esposa_baut", a.esposa_no_baut)]);
   }
   if (a.tipo === "MATRIMONIO") {
     Filas.push(["Padrino", a.padrino || "—"]);

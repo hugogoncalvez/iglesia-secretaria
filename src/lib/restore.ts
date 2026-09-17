@@ -205,6 +205,8 @@ const COLS_ACTA = [
   "esposa_baut_fecha",
   "esposa_baut_libro",
   "esposa_baut_folio",
+  "esposo_no_baut",
+  "esposa_no_baut",
   "conf_baut_lugar",
   "conf_baut_fecha",
   "conf_baut_libro",
@@ -252,7 +254,9 @@ export async function aplicarRestauracion(d: DatosResguardo): Promise<void> {
       const vals = COLS_ACTA.map((c) =>
         ["id", "persona_id", "esposo_persona_id", "esposa_persona_id"].includes(c)
           ? num(normalizada[c])
-          : str(normalizada[c])
+          : ["esposo_no_baut", "esposa_no_baut"].includes(c)
+            ? (num(normalizada[c]) ?? 0)
+            : str(normalizada[c])
       );
       await sqlExecute(
         `INSERT INTO sacramentos (${COLS_ACTA.join(",")}) VALUES (${COLS_ACTA.map(

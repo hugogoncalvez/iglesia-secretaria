@@ -44,6 +44,8 @@ export async function sembrarDemo(): Promise<number> {
     esposa_baut_fecha: "",
     esposa_baut_libro: "",
     esposa_baut_folio: "",
+    esposo_no_baut: false,
+    esposa_no_baut: false,
     conf_baut_lugar: "",
     conf_baut_fecha: "",
     conf_baut_libro: "",

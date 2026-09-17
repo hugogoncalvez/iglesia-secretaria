@@ -140,9 +140,117 @@ function InformeDoc({ inf, libros, capacidad, cfg }: { inf: InformeEstadistico; 
   );
 }
 
+/* ---------------- Planilla Obispado (réplica Datos Estadísticos) ---------------- */
+
+export interface DatosObispado {
+  catequistas: string;
+  misioneros: string;
+  hogarMujeres: string;
+  hogarVarones: string;
+  capillas: string;
+}
+
+export const OBISPADO_VACIO: DatosObispado = {
+  catequistas: "",
+  misioneros: "",
+  hogarMujeres: "",
+  hogarVarones: "",
+  capillas: "",
+};
+
+const obispadoKey = (anio: string) => `iglesia_obispado_${anio}`;
+
+function leerObispado(anio: string): DatosObispado {
+  try {
+    return { ...OBISPADO_VACIO, ...(JSON.parse(localStorage.getItem(obispadoKey(anio)) ?? "{}") as Partial<DatosObispado>) };
+  } catch {
+    return { ...OBISPADO_VACIO };
+  }
+}
+
+const planilla = StyleSheet.create({
+  page: { paddingHorizontal: 56, paddingVertical: 48, fontSize: 11, fontFamily: "Helvetica", lineHeight: 1.5 },
+  header: { textAlign: "center", fontWeight: "bold", fontSize: 13 },
+  headerSub: { textAlign: "center", fontSize: 9 },
+  titulo: { textAlign: "center", fontWeight: "bold", fontSize: 12, textDecoration: "underline", marginTop: 20, marginBottom: 14 },
+  parroquia: { fontWeight: "bold", marginBottom: 10 },
+  item: { fontWeight: "bold", marginTop: 10 },
+  sub: { marginLeft: 12, marginTop: 3 },
+  nota: { marginTop: 16 },
+  cierre: { marginTop: 26, fontWeight: "bold" },
+});
+
+/** Vacío → línea de puntos como la planilla en blanco; con dato → el número. */
+function valPlanilla(v: string | number): string {
+  const s = String(v ?? "").trim();
+  return s === "" ? "................" : s;
+}
+
+function PlanillaDoc({ inf, datos, anio, cfg }: { inf: InformeEstadistico; datos: DatosObispado; anio: string; cfg: ParishConfig }) {
+  const baut = (bucket: string): number =>
+    inf.edades.find((e) => e.bucket === bucket)?.BAUTISMO ?? 0;
+  const hasta1 = baut("Menor de 1 año");
+  const de1a7 = baut("1 a 7 años");
+  const mayores7 = baut("8 a 17 años") + baut("18 años o más");
+  return (
+    <Document>
+      <Page size="A4" style={planilla.page}>
+        <Text style={planilla.header}>OBISPADO DE POSADAS</Text>
+        <Text style={planilla.headerSub}>Tel. 0376-4423221</Text>
+        <Text style={planilla.headerSub}>F.de Azara 1604 - N3300LQJ - Posadas - Misiones</Text>
+        <Text style={planilla.headerSub}>E-mail: diocesisdeposadas@gmail.com</Text>
+
+        <Text style={planilla.titulo}>DATOS ESTADISTICOS</Text>
+
+        <Text style={planilla.parroquia}>Parroquia {cfg.parroquia}</Text>
+
+        <Text style={planilla.item}>1. BAUTIZADOS DURANTE EL AÑO {anio}</Text>
+        <Text style={planilla.sub}>a) hasta 1 año: {hasta1}</Text>
+        <Text style={planilla.sub}>b) de 1 a 7 años: {de1a7}</Text>
+        <Text style={planilla.sub}>c) mayores de 7 años: {mayores7}</Text>
+
+        <Text style={planilla.item}>2. MATRIMONIOS REALIZADOS DURANTE EL AÑO {anio}:</Text>
+        <Text style={planilla.sub}>a) entre católicos (bautizados): {inf.matrimonios.entreCatolicos}</Text>
+        <Text style={planilla.sub}>b) entre un católico y un no católico: {inf.matrimonios.mixtos}</Text>
+
+        <Text style={planilla.item}>3. CONFIRMADOS DURANTE EL AÑO {anio}: {inf.porTipo.CONFIRMACION}</Text>
+
+        <Text style={planilla.item}>4. PRIMERAS COMUNIONES DURANTE EL AÑO {anio} {valPlanilla(inf.porTipo.COMUNION)}</Text>
+
+        <Text style={planilla.item}>5. Cantidad de CATEQUISTAS (Parroquia y Capillas): {valPlanilla(datos.catequistas)}</Text>
+
+        <Text style={planilla.item}>6. Tiene en su Parroquia MISIONEROS LAICOS, Cuántos: {valPlanilla(datos.misioneros)}</Text>
+
+        <Text style={planilla.item}>
+          7. Si tienen un HOGAR DE ANCIANOS, atendido por Religiosas o pertenece a la
+          Parroquia; cuántos internos: Mujeres: {valPlanilla(datos.hogarMujeres)} Varones {valPlanilla(datos.hogarVarones)}
+        </Text>
+
+        <Text style={planilla.item}>
+          8. Cantidad de Capillas y lugares donde celebran normalmente la Misa: {valPlanilla(datos.capillas)}
+        </Text>
+
+        <Text style={planilla.nota}>
+          <Text style={{ fontWeight: "bold" }}>NOTA</Text>
+          : Bautismos -mayores de 7 años- incluir también a los convertidos que, sin
+          bautismo sub condicione, han sido admitidos en la Iglesia Católica.
+        </Text>
+
+        <Text style={planilla.cierre}>
+          Recordamos que “El párroco ejerce la cura pastoral de la comunidad que le ha
+          sido encomendada bajo la autoridad del obispo Diocesano” (c. 519) y debe
+          colaborar con el mismo (c. 529 §2), quien tiene la obligación de remitir
+          anualmente esta información a la Santa Sede, por lo que rogamos devolver esta
+          misma hoja <Text style={{ textDecoration: "underline" }}>antes del 15 de marzo de {Number(anio) + 1}</Text>
+        </Text>
+      </Page>
+    </Document>
+  );
+}
+
 /* ---------------- CSV (abre en Excel) ---------------- */
 
-function aCSV(inf: InformeEstadistico, libros: LibroUso[], capacidad: number): string {
+function aCSV(inf: InformeEstadistico, libros: LibroUso[], capacidad: number, datos: DatosObispado, anio: string): string {
   const L: string[] = [];
   const cel = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
   L.push(`Informe estadístico de sacramentos;${inf.desde || ""} al ${inf.hasta || ""}`);
@@ -159,6 +267,22 @@ function aCSV(inf: InformeEstadistico, libros: LibroUso[], capacidad: number): s
   L.push("");
   L.push(`Libro (acumulado, capacidad ${capacidad});Sacramento;Usadas`);
   for (const l of libros) L.push(`${cel(`Libro ${l.libro}`)};${l.tipo};${l.cantidad}`);
+  L.push("");
+  L.push(`Planilla Obispado año ${anio};Cantidad`);
+  const baut = (b: string) => inf.edades.find((e) => e.bucket === b)?.BAUTISMO ?? 0;
+  L.push(`1a Bautismos hasta 1 año;${baut("Menor de 1 año")}`);
+  L.push(`1b Bautismos de 1 a 7 años;${baut("1 a 7 años")}`);
+  L.push(`1c Bautismos mayores de 7 años;${baut("8 a 17 años") + baut("18 años o más")}`);
+  L.push(`2a Matrimonios entre católicos;${inf.matrimonios.entreCatolicos}`);
+  L.push(`2b Matrimonios católico + no católico;${inf.matrimonios.mixtos}`);
+  L.push(`2 Matrimonios sin dato de bautismo;${inf.matrimonios.sinDato}`);
+  L.push(`3 Confirmados;${inf.porTipo.CONFIRMACION}`);
+  L.push(`4 Primeras comuniones;${inf.porTipo.COMUNION}`);
+  L.push(`5 Catequistas;${datos.catequistas || 0}`);
+  L.push(`6 Misioneros laicos;${datos.misioneros || 0}`);
+  L.push(`7 Hogar ancianos mujeres;${datos.hogarMujeres || 0}`);
+  L.push(`7 Hogar ancianos varones;${datos.hogarVarones || 0}`);
+  L.push(`8 Capillas;${datos.capillas || 0}`);
   return "﻿" + L.join("\r\n");
 }
 
@@ -172,6 +296,8 @@ export default function Estadisticas() {
   const [cargando, setCargando] = useState(true);
   const [err, setErr] = useState("");
   const [cfg, setCfg] = useState<ParishConfig | null>(null);
+  const anio = (rango.desde || String(new Date().getFullYear())).slice(0, 4);
+  const [datos, setDatos] = useState<DatosObispado>(OBISPADO_VACIO);
 
   async function recargar(d: string, h: string) {
     setCargando(true);
@@ -190,19 +316,52 @@ export default function Estadisticas() {
   useEffect(() => {
     const r = anioActual();
     setRango(r);
+    setDatos(leerObispado(r.desde.slice(0, 4)));
     recargar(r.desde, r.hasta);
     getConfig().then(setCfg).catch(() => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Los datos manuales 5–8 se guardan por año.
+  useEffect(() => {
+    setDatos(leerObispado(anio));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [anio]);
+
+  function setDato(k: keyof DatosObispado) {
+    return (e: React.ChangeEvent<HTMLInputElement>) => {
+      const v = e.target.value;
+      setDatos((d) => {
+        const n = { ...d, [k]: v };
+        try {
+          localStorage.setItem(obispadoKey(anio), JSON.stringify(n));
+        } catch {
+          /* almacenamiento opcional */
+        }
+        return n;
+      });
+    };
+  }
 
   function aplicar(e: React.FormEvent) {
     e.preventDefault();
     recargar(rango.desde, rango.hasta);
   }
 
+  /** Salta la planilla a un año calendario completo (01/01–31/12) y recalcula. */
+  function irAAnio(a: string) {
+    if (!/^\d{4}$/.test(a)) return;
+    const n = Number(a);
+    if (n < 1900 || n > 2100) return;
+    const d = `${a}-01-01`;
+    const h = `${a}-12-31`;
+    setRango({ desde: d, hasta: h });
+    recargar(d, h);
+  }
+
   function bajarCSV() {
     if (!inf) return;
-    const blob = new Blob([aCSV(inf, libros, capacidad)], { type: "text/csv;charset=utf-8" });
+    const blob = new Blob([aCSV(inf, libros, capacidad, datos, anio)], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = `estadisticas-${rango.desde || "todo"}_${rango.hasta || "todo"}.csv`;
@@ -211,6 +370,8 @@ export default function Estadisticas() {
   }
 
   const maxMes = Math.max(1, ...((inf?.porMes ?? []).map((m) => m.total)));
+  const bautSinDato = inf?.edades.find((e) => e.bucket === "Sin dato")?.BAUTISMO ?? 0;
+  const numCls = "mt-1 w-full border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-2 bg-parroquia-100 dark:bg-noche-600 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-parroquia-700";
 
   return (
     <div className="space-y-3">
@@ -244,7 +405,16 @@ export default function Estadisticas() {
               fileName={`informe-${rango.desde || "todo"}_${rango.hasta || "todo"}.pdf`}
               className="border border-slate-300 dark:border-slate-500 rounded-lg px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors inline-flex items-center gap-1.5"
             >
-              {({ loading }) => (<><Download size={14} />{loading ? "Generando PDF…" : "PDF"}</>)}
+              {({ loading }) => (<><Download size={14} />{loading ? "Generando…" : "Informe PDF"}</>)}
+            </PDFDownloadLink>
+          )}
+          {inf && cfg && (
+            <PDFDownloadLink
+              document={<PlanillaDoc inf={inf} datos={datos} anio={anio} cfg={cfg} />}
+              fileName={`planilla-obispado-${anio}.pdf`}
+              className="bg-emerald-800 hover:bg-emerald-700 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors inline-flex items-center gap-1.5"
+            >
+              {({ loading }) => (<><Download size={14} />{loading ? "Generando…" : "Planilla Obispado"}</>)}
             </PDFDownloadLink>
           )}
           <button type="button" onClick={bajarCSV} disabled={!inf} className="border border-slate-300 dark:border-slate-500 rounded-lg px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors inline-flex items-center gap-1.5 disabled:opacity-40">
@@ -259,6 +429,57 @@ export default function Estadisticas() {
         <p className="text-sm text-slate-500 dark:text-slate-300">Generando informe…</p>
       ) : inf && (
         <>
+          {(inf.matrimonios.sinDato > 0 || bautSinDato > 0) && (
+            <div className="text-sm text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-900/40 border border-amber-200 dark:border-amber-700 rounded p-2 space-y-1">
+              {inf.matrimonios.sinDato > 0 && (
+                <p>Hay {inf.matrimonios.sinDato} matrimonio(s) sin dato de bautismo: no entran en 2a/2b. Revisá las actas (tildá “No bautizado” donde corresponda).</p>
+              )}
+              {bautSinDato > 0 && (
+                <p>Hay {bautSinDato} bautismo(s) sin fecha de nacimiento: no entran en 1a/1b/1c.</p>
+              )}
+            </div>
+          )}
+
+          <div className="bg-white dark:bg-noche-700 dark:text-slate-100 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="font-display font-bold">Planilla del Obispado</h3>
+              <input
+                type="number" min={1900} max={2100}
+                title="Año de la planilla (pone el rango en 01/01–31/12)"
+                className="w-24 border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1 bg-parroquia-100 dark:bg-noche-600 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-parroquia-700 tabular-nums"
+                value={anio}
+                onChange={(e) => irAAnio(e.target.value)}
+              />
+              <span className="text-xs font-normal text-slate-500 dark:text-slate-400">(puntos 1–4 automáticos del rango · 5–8 a completar)</span>
+            </div>
+            <p className="text-sm mt-1 text-slate-600 dark:text-slate-300">
+              2a entre católicos: <b className="tabular-nums">{inf.matrimonios.entreCatolicos}</b>
+              {" · "}2b mixtos: <b className="tabular-nums">{inf.matrimonios.mixtos}</b>
+            </p>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mt-2">
+              <div>
+                <label className="text-xs font-medium">Catequistas (5)</label>
+                <input type="number" min={0} className={numCls} value={datos.catequistas} onChange={setDato("catequistas")} />
+              </div>
+              <div>
+                <label className="text-xs font-medium">Misioneros (6)</label>
+                <input type="number" min={0} className={numCls} value={datos.misioneros} onChange={setDato("misioneros")} />
+              </div>
+              <div>
+                <label className="text-xs font-medium">Hogar mujeres (7)</label>
+                <input type="number" min={0} className={numCls} value={datos.hogarMujeres} onChange={setDato("hogarMujeres")} />
+              </div>
+              <div>
+                <label className="text-xs font-medium">Hogar varones (7)</label>
+                <input type="number" min={0} className={numCls} value={datos.hogarVarones} onChange={setDato("hogarVarones")} />
+              </div>
+              <div>
+                <label className="text-xs font-medium">Capillas (8)</label>
+                <input type="number" min={0} className={numCls} value={datos.capillas} onChange={setDato("capillas")} />
+              </div>
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             {ETIQUETAS.map(({ tipo, label, punto }) => (
               <div key={tipo} className="flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-noche-700 px-3 py-2 shadow-sm">

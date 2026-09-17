@@ -51,6 +51,19 @@ export interface LibroUso {
   cantidad: number;
 }
 
+/** Desglose de matrimonios para la planilla del Obispado (punto 2). */
+export interface DesgloseMatrimonios {
+  entreCatolicos: number; // 2a: ambos contrayentes con dato de bautismo
+  mixtos: number; // 2b: solo uno con dato de bautismo
+  sinDato: number; // ninguno con dato ni "No bautizado" explícito
+}
+
+export const DESGLOSE_VACIO: DesgloseMatrimonios = {
+  entreCatolicos: 0,
+  mixtos: 0,
+  sinDato: 0,
+};
+
 export interface InformeEstadistico {
   desde: string;
   hasta: string;
@@ -58,6 +71,7 @@ export interface InformeEstadistico {
   total: number;
   porMes: MesFila[];
   edades: EdadFila[];
+  matrimonios: DesgloseMatrimonios;
 }
 
 /** Edad en años cumplidos entre dos fechas ISO (YYYY-MM-DD). null si falta alguna. */
@@ -93,6 +107,40 @@ interface ActaPlana {
   persona_id: number | null;
   esposo_persona_id?: number | null;
   esposa_persona_id?: number | null;
+  esposo_baut_lugar?: string;
+  esposo_baut_fecha?: string;
+  esposo_baut_libro?: string;
+  esposo_baut_folio?: string;
+  esposa_baut_lugar?: string;
+  esposa_baut_fecha?: string;
+  esposa_baut_libro?: string;
+  esposa_baut_folio?: string;
+  esposo_no_baut?: boolean | number | null;
+  esposa_no_baut?: boolean | number | null;
+}
+
+/** true si el contrayente figura como bautizado (dato cargado y sin tilde "No bautizado"). */
+export function contrayenteBautizado(
+  lugar: string | undefined,
+  fecha: string | undefined,
+  libro: string | undefined,
+  folio: string | undefined,
+  noBaut: boolean | number | null | undefined
+): boolean {
+  if (Number(noBaut) === 1) return false;
+  return !!(lugar || fecha || libro || folio);
+}
+
+function clasificarMatrimonio(a: ActaPlana, d: DesgloseMatrimonios): void {
+  const esposo = contrayenteBautizado(
+    a.esposo_baut_lugar, a.esposo_baut_fecha, a.esposo_baut_libro, a.esposo_baut_folio, a.esposo_no_baut
+  );
+  const esposa = contrayenteBautizado(
+    a.esposa_baut_lugar, a.esposa_baut_fecha, a.esposa_baut_libro, a.esposa_baut_folio, a.esposa_no_baut
+  );
+  if (esposo && esposa) d.entreCatolicos++;
+  else if (esposo || esposa) d.mixtos++;
+  else d.sinDato++;
 }
 
 function enRango(fecha: string, desde: string, hasta: string): boolean {
@@ -110,6 +158,7 @@ function armarInforme(
 ): InformeEstadistico {
   const porTipo: ConteoPorTipo = { ...CONTEO_VACIO };
   const meses = new Map<string, MesFila>();
+  const matrimonios: DesgloseMatrimonios = { ...DESGLOSE_VACIO };
   const edades = new Map<EdadBucket, EdadFila>();
   for (const b of EDADES_BUCKETS) {
     edades.set(b, { bucket: b, BAUTISMO: 0, COMUNION: 0, CONFIRMACION: 0 });
@@ -119,6 +168,7 @@ function armarInforme(
     if (!TIPOS_SACRAMENTO.includes(a.tipo)) continue;
     if (!enRango(a.fecha_sacramento, desde, hasta)) continue;
     porTipo[a.tipo]++;
+    if (a.tipo === "MATRIMONIO") clasificarMatrimonio(a, matrimonios);
 
     const mes = a.fecha_sacramento.slice(0, 7);
     if (/^\d{4}-\d{2}$/.test(mes)) {
@@ -146,6 +196,7 @@ function armarInforme(
     total: porTipo.BAUTISMO + porTipo.COMUNION + porTipo.CONFIRMACION + porTipo.MATRIMONIO,
     porMes,
     edades: EDADES_BUCKETS.map((b) => edades.get(b)!),
+    matrimonios,
   };
 }
 
@@ -153,7 +204,7 @@ export async function informeEstadistico(desde: string, hasta: string): Promise<
   await initDb();
 
   if (getMode() === "sqlite") {
-    const [conteo, mensual, bautismos] = await Promise.all([
+    const [conteo, mensual, bautismos, matris] = await Promise.all([
       sqlSelect<{ tipo: TipoSacramento; n: number }[]>(
         `SELECT tipo, COUNT(*) AS n FROM sacramentos
          WHERE fecha_sacramento >= $1 AND ($2 = '' OR fecha_sacramento <= $2)
@@ -172,6 +223,21 @@ export async function informeEstadistico(desde: string, hasta: string): Promise<
          LEFT JOIN personas p ON p.id = s.persona_id
          WHERE s.tipo IN ('BAUTISMO','COMUNION','CONFIRMACION')
            AND s.fecha_sacramento >= $1 AND ($2 = '' OR s.fecha_sacramento <= $2)`,
+        [desde || "0000-00-00", hasta]
+      ),
+      sqlSelect<{
+        esposo_baut_lugar: string | null; esposo_baut_fecha: string | null;
+        esposo_baut_libro: string | null; esposo_baut_folio: string | null;
+        esposo_no_baut: number | null;
+        esposa_baut_lugar: string | null; esposa_baut_fecha: string | null;
+        esposa_baut_libro: string | null; esposa_baut_folio: string | null;
+        esposa_no_baut: number | null;
+      }[]>(
+        `SELECT esposo_baut_lugar, esposo_baut_fecha, esposo_baut_libro, esposo_baut_folio, esposo_no_baut,
+                esposa_baut_lugar, esposa_baut_fecha, esposa_baut_libro, esposa_baut_folio, esposa_no_baut
+         FROM sacramentos
+         WHERE tipo = 'MATRIMONIO'
+           AND fecha_sacramento >= $1 AND ($2 = '' OR fecha_sacramento <= $2)`,
         [desde || "0000-00-00", hasta]
       ),
     ]);
@@ -200,6 +266,28 @@ export async function informeEstadistico(desde: string, hasta: string): Promise<
       const fila = edades.get(bucketEdad(edadAnios(r.fecha_nacimiento ?? "", r.fecha_sacramento)));
       if (fila) fila[r.tipo]++;
     }
+    const matrimonios: DesgloseMatrimonios = { ...DESGLOSE_VACIO };
+    for (const r of matris) {
+      clasificarMatrimonio(
+        {
+          tipo: "MATRIMONIO",
+          fecha_sacramento: "",
+          libro: "",
+          persona_id: null,
+          esposo_baut_lugar: r.esposo_baut_lugar ?? "",
+          esposo_baut_fecha: r.esposo_baut_fecha ?? "",
+          esposo_baut_libro: r.esposo_baut_libro ?? "",
+          esposo_baut_folio: r.esposo_baut_folio ?? "",
+          esposa_baut_lugar: r.esposa_baut_lugar ?? "",
+          esposa_baut_fecha: r.esposa_baut_fecha ?? "",
+          esposa_baut_libro: r.esposa_baut_libro ?? "",
+          esposa_baut_folio: r.esposa_baut_folio ?? "",
+          esposo_no_baut: r.esposo_no_baut,
+          esposa_no_baut: r.esposa_no_baut,
+        },
+        matrimonios
+      );
+    }
     return {
       desde,
       hasta,
@@ -207,6 +295,7 @@ export async function informeEstadistico(desde: string, hasta: string): Promise<
       total: porTipo.BAUTISMO + porTipo.COMUNION + porTipo.CONFIRMACION + porTipo.MATRIMONIO,
       porMes: [...meses.values()],
       edades: EDADES_BUCKETS.map((b) => edades.get(b)!),
+      matrimonios,
     };
   }
 

@@ -96,6 +96,8 @@ export interface SacramentoInput {
   esposa_baut_fecha: string;
   esposa_baut_libro: string;
   esposa_baut_folio: string;
+  esposo_no_baut: boolean; // matrimonio: "No bautizado" explícito (distingue de sin dato)
+  esposa_no_baut: boolean;
   conf_baut_lugar: string; // confirmación: bautismo previo
   conf_baut_fecha: string;
   conf_baut_libro: string;
@@ -126,6 +128,8 @@ export const SACRAMENTO_VACIO: SacramentoInput = {
   esposa_baut_fecha: "",
   esposa_baut_libro: "",
   esposa_baut_folio: "",
+  esposo_no_baut: false,
+  esposa_no_baut: false,
   conf_baut_lugar: "",
   conf_baut_fecha: "",
   conf_baut_libro: "",
@@ -234,6 +238,11 @@ async function ensureColumnas() {
       await db.execute(`ALTER TABLE sacramentos ADD COLUMN ${col} TEXT NOT NULL DEFAULT ''`);
     }
   }
+  for (const col of ["esposo_no_baut", "esposa_no_baut"]) {
+    if (!tiene.has(col)) {
+      await db.execute(`ALTER TABLE sacramentos ADD COLUMN ${col} INTEGER NOT NULL DEFAULT 0`);
+    }
+  }
   // Usuarios: flag de cambio de clave pendiente en primer login
   const infoU = await db.select<{ name: string }[]>("PRAGMA table_info(usuarios)");
   if (!new Set(infoU.map((c) => c.name)).has("debe_cambiar")) {
@@ -302,6 +311,8 @@ export async function initDb(): Promise<Mode> {
         esposa_baut_fecha TEXT NOT NULL DEFAULT '',
         esposa_baut_libro TEXT NOT NULL DEFAULT '',
         esposa_baut_folio TEXT NOT NULL DEFAULT '',
+        esposo_no_baut INTEGER NOT NULL DEFAULT 0,
+        esposa_no_baut INTEGER NOT NULL DEFAULT 0,
         conf_baut_lugar TEXT NOT NULL DEFAULT '',
         conf_baut_fecha TEXT NOT NULL DEFAULT '',
         conf_baut_libro TEXT NOT NULL DEFAULT '',
@@ -381,6 +392,8 @@ const COLS_ACTA_MIG = [
   "esposa_baut_fecha",
   "esposa_baut_libro",
   "esposa_baut_folio",
+  "esposo_no_baut",
+  "esposa_no_baut",
   "conf_baut_lugar",
   "conf_baut_fecha",
   "conf_baut_libro",
@@ -415,6 +428,7 @@ async function migrarLocalASqlite(): Promise<void> {
     else if (res.lastInsertId != null) idsPersonas.add(res.lastInsertId);
   }
   const ids = new Set(["id", "persona_id", "esposo_persona_id", "esposa_persona_id"]);
+  const flags = new Set(["esposo_no_baut", "esposa_no_baut"]);
   const refs = ["persona_id", "esposo_persona_id", "esposa_persona_id"];
   for (const r of actas) {
     const normalizada: Record<string, unknown> = { ...r };
@@ -429,7 +443,9 @@ async function migrarLocalASqlite(): Promise<void> {
       const v = numV(normalizada[k]);
       normalizada[k] = v != null && idsPersonas.has(v) ? v : null;
     }
-    const vals = COLS_ACTA_MIG.map((c) => (ids.has(c) ? numV(normalizada[c]) : strV(normalizada[c])));
+    const vals = COLS_ACTA_MIG.map((c) =>
+      ids.has(c) ? numV(normalizada[c]) : flags.has(c) ? (normalizada[c] ? 1 : 0) : strV(normalizada[c])
+    );
     await db.execute(
       `INSERT OR REPLACE INTO sacramentos (${COLS_ACTA_MIG.join(",")}) VALUES (${COLS_ACTA_MIG.map((_, i) => `$${i + 1}`).join(",")})`,
       vals
@@ -561,6 +577,7 @@ export async function getDetalle(id: number): Promise<ActaDetalle | null> {
         esposo_baut_libro: string; esposo_baut_folio: string;
         esposa_baut_lugar: string; esposa_baut_fecha: string;
         esposa_baut_libro: string; esposa_baut_folio: string;
+        esposo_no_baut: number | null; esposa_no_baut: number | null;
         conf_baut_lugar: string; conf_baut_fecha: string;
         conf_baut_libro: string; conf_baut_folio: string;
       }[]
@@ -596,6 +613,8 @@ export async function getDetalle(id: number): Promise<ActaDetalle | null> {
       esposa_baut_fecha: a.esposa_baut_fecha ?? "",
       esposa_baut_libro: a.esposa_baut_libro ?? "",
       esposa_baut_folio: a.esposa_baut_folio ?? "",
+      esposo_no_baut: Number(a.esposo_no_baut) === 1,
+      esposa_no_baut: Number(a.esposa_no_baut) === 1,
       conf_baut_lugar: a.conf_baut_lugar ?? "",
       conf_baut_fecha: a.conf_baut_fecha ?? "",
       conf_baut_libro: a.conf_baut_libro ?? "",
@@ -614,6 +633,7 @@ export async function getDetalle(id: number): Promise<ActaDetalle | null> {
     esposo_baut_libro: string; esposo_baut_folio: string;
     esposa_baut_lugar: string; esposa_baut_fecha: string;
     esposa_baut_libro: string; esposa_baut_folio: string;
+    esposo_no_baut?: boolean | number | null; esposa_no_baut?: boolean | number | null;
     conf_baut_lugar: string; conf_baut_fecha: string;
     conf_baut_libro: string; conf_baut_folio: string;
   }>(LS_ACTAS);
@@ -646,6 +666,8 @@ export async function getDetalle(id: number): Promise<ActaDetalle | null> {
     esposa_baut_fecha: a.esposa_baut_fecha ?? "",
     esposa_baut_libro: a.esposa_baut_libro ?? "",
     esposa_baut_folio: a.esposa_baut_folio ?? "",
+    esposo_no_baut: a.esposo_no_baut === true || a.esposo_no_baut === 1,
+    esposa_no_baut: a.esposa_no_baut === true || a.esposa_no_baut === 1,
     conf_baut_lugar: a.conf_baut_lugar ?? "",
     conf_baut_fecha: a.conf_baut_fecha ?? "",
     conf_baut_libro: a.conf_baut_libro ?? "",
@@ -853,9 +875,10 @@ export async function crearActa(input: SacramentoInput): Promise<number> {
         domicilio_matrimonial, referencia_folios,
         esposo_baut_lugar, esposo_baut_fecha, esposo_baut_libro, esposo_baut_folio,
         esposa_baut_lugar, esposa_baut_fecha, esposa_baut_libro, esposa_baut_folio,
+        esposo_no_baut, esposa_no_baut,
         conf_baut_lugar, conf_baut_fecha, conf_baut_libro, conf_baut_folio)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,
-               $16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27)`,
+               $16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29)`,
       [
         personaId, esposoId, esposaId, input.tipo, input.fecha_sacramento,
         input.ministro_celebrante, input.libro, input.folio, input.parroquia_capilla,
@@ -866,6 +889,7 @@ export async function crearActa(input: SacramentoInput): Promise<number> {
         input.esposo_baut_libro, input.esposo_baut_folio,
         input.esposa_baut_lugar, input.esposa_baut_fecha,
         input.esposa_baut_libro, input.esposa_baut_folio,
+        input.esposo_no_baut ? 1 : 0, input.esposa_no_baut ? 1 : 0,
         input.conf_baut_lugar, input.conf_baut_fecha,
         input.conf_baut_libro, input.conf_baut_folio,
       ]
@@ -912,6 +936,8 @@ export async function crearActa(input: SacramentoInput): Promise<number> {
     esposa_baut_fecha: input.esposa_baut_fecha,
     esposa_baut_libro: input.esposa_baut_libro,
     esposa_baut_folio: input.esposa_baut_folio,
+    esposo_no_baut: input.esposo_no_baut,
+    esposa_no_baut: input.esposa_no_baut,
     conf_baut_lugar: input.conf_baut_lugar,
     conf_baut_fecha: input.conf_baut_fecha,
     conf_baut_libro: input.conf_baut_libro,
@@ -957,8 +983,9 @@ export async function actualizarActa(id: number, input: SacramentoInput): Promis
        domicilio_matrimonial=$10, referencia_folios=$11,
        esposo_baut_lugar=$12, esposo_baut_fecha=$13, esposo_baut_libro=$14, esposo_baut_folio=$15,
        esposa_baut_lugar=$16, esposa_baut_fecha=$17, esposa_baut_libro=$18, esposa_baut_folio=$19,
-       conf_baut_lugar=$20, conf_baut_fecha=$21, conf_baut_libro=$22, conf_baut_folio=$23
-       WHERE id=$24`,
+       esposo_no_baut=$20, esposa_no_baut=$21,
+       conf_baut_lugar=$22, conf_baut_fecha=$23, conf_baut_libro=$24, conf_baut_folio=$25
+       WHERE id=$26`,
       [
         input.fecha_sacramento, input.ministro_celebrante, input.libro, input.folio,
         input.parroquia_capilla, input.padrino, input.madrina, input.notas_marginales,
@@ -968,6 +995,7 @@ export async function actualizarActa(id: number, input: SacramentoInput): Promis
         input.esposo_baut_libro, input.esposo_baut_folio,
         input.esposa_baut_lugar, input.esposa_baut_fecha,
         input.esposa_baut_libro, input.esposa_baut_folio,
+        input.esposo_no_baut ? 1 : 0, input.esposa_no_baut ? 1 : 0,
         input.conf_baut_lugar, input.conf_baut_fecha,
         input.conf_baut_libro, input.conf_baut_folio, id,
       ]
@@ -988,6 +1016,7 @@ export async function actualizarActa(id: number, input: SacramentoInput): Promis
     esposo_baut_libro: string; esposo_baut_folio: string;
     esposa_baut_lugar: string; esposa_baut_fecha: string;
     esposa_baut_libro: string; esposa_baut_folio: string;
+    esposo_no_baut?: boolean | number | null; esposa_no_baut?: boolean | number | null;
     conf_baut_lugar: string; conf_baut_fecha: string;
     conf_baut_libro: string; conf_baut_folio: string;
   }>(LS_ACTAS);
@@ -1022,6 +1051,8 @@ export async function actualizarActa(id: number, input: SacramentoInput): Promis
       esposa_baut_fecha: input.esposa_baut_fecha,
       esposa_baut_libro: input.esposa_baut_libro,
       esposa_baut_folio: input.esposa_baut_folio,
+      esposo_no_baut: input.esposo_no_baut,
+      esposa_no_baut: input.esposa_no_baut,
       conf_baut_lugar: input.conf_baut_lugar,
       conf_baut_fecha: input.conf_baut_fecha,
       conf_baut_libro: input.conf_baut_libro,
