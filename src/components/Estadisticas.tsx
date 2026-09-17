@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
-import { PDFDownloadLink, Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import { pdf, Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import { Download } from "lucide-react";
+import { save } from "@tauri-apps/plugin-dialog";
+import { writeFile } from "@tauri-apps/plugin-fs";
 import {
   TIPOS_SACRAMENTO,
   getConfig,
+  isTauri,
   type ParishConfig,
   type TipoSacramento,
 } from "../lib/db";
@@ -38,7 +41,7 @@ function mesLargo(ym: string): string {
 
 /* ---------------- PDF ---------------- */
 
-const pdf = StyleSheet.create({
+const rep = StyleSheet.create({
   page: { paddingHorizontal: 48, paddingVertical: 44, fontSize: 10 },
   parroquia: { fontSize: 15, textAlign: "center", fontWeight: "bold" },
   sub: { fontSize: 9, textAlign: "center", color: "#555", marginBottom: 2 },
@@ -56,85 +59,85 @@ const pdf = StyleSheet.create({
 function InformeDoc({ inf, libros, capacidad, cfg }: { inf: InformeEstadistico; libros: LibroUso[]; capacidad: number; cfg: ParishConfig }) {
   return (
     <Document>
-      <Page size="A4" style={pdf.page}>
-        <Text style={pdf.parroquia}>{cfg.parroquia}</Text>
-        <Text style={pdf.sub}>{cfg.devocion} · {cfg.diocesis}</Text>
-        <Text style={pdf.titulo}>Informe estadístico de sacramentos</Text>
-        <Text style={pdf.rango}>Período: {inf.desde || "—"} al {inf.hasta || "—"}</Text>
+      <Page size="A4" style={rep.page}>
+        <Text style={rep.parroquia}>{cfg.parroquia}</Text>
+        <Text style={rep.sub}>{cfg.devocion} · {cfg.diocesis}</Text>
+        <Text style={rep.titulo}>Informe estadístico de sacramentos</Text>
+        <Text style={rep.rango}>Período: {inf.desde || "—"} al {inf.hasta || "—"}</Text>
 
-        <Text style={pdf.h2}>Resumen por sacramento</Text>
-        <View style={pdf.tabla}>
-          <View style={pdf.fila}>
-            <Text style={pdf.celdaHead}>Sacramento</Text>
-            <Text style={[pdf.celdaHead, { textAlign: "right" }]}>Cantidad</Text>
+        <Text style={rep.h2}>Resumen por sacramento</Text>
+        <View style={rep.tabla}>
+          <View style={rep.fila}>
+            <Text style={rep.celdaHead}>Sacramento</Text>
+            <Text style={[rep.celdaHead, { textAlign: "right" }]}>Cantidad</Text>
           </View>
           {TIPOS_SACRAMENTO.map((t) => (
-            <View style={pdf.fila} key={t}>
-              <Text style={pdf.celda}>{t}</Text>
-              <Text style={pdf.celdaDer}>{inf.porTipo[t]}</Text>
+            <View style={rep.fila} key={t}>
+              <Text style={rep.celda}>{t}</Text>
+              <Text style={rep.celdaDer}>{inf.porTipo[t]}</Text>
             </View>
           ))}
-          <View style={pdf.fila}>
-            <Text style={pdf.celdaHead}>TOTAL</Text>
-            <Text style={[pdf.celdaHead, { textAlign: "right" }]}>{inf.total}</Text>
+          <View style={rep.fila}>
+            <Text style={rep.celdaHead}>TOTAL</Text>
+            <Text style={[rep.celdaHead, { textAlign: "right" }]}>{inf.total}</Text>
           </View>
         </View>
 
-        <Text style={pdf.h2}>Detalle mensual</Text>
-        <View style={pdf.tabla}>
-          <View style={pdf.fila}>
-            <Text style={pdf.celdaHead}>Mes</Text>
+        <Text style={rep.h2}>Detalle mensual</Text>
+        <View style={rep.tabla}>
+          <View style={rep.fila}>
+            <Text style={rep.celdaHead}>Mes</Text>
             {TIPOS_SACRAMENTO.map((t) => (
-              <Text key={t} style={[pdf.celdaHead, { textAlign: "right" }]}>{t.slice(0, 4)}.</Text>
+              <Text key={t} style={[rep.celdaHead, { textAlign: "right" }]}>{t.slice(0, 4)}.</Text>
             ))}
-            <Text style={[pdf.celdaHead, { textAlign: "right" }]}>Total</Text>
+            <Text style={[rep.celdaHead, { textAlign: "right" }]}>Total</Text>
           </View>
           {inf.porMes.map((m) => (
-            <View style={pdf.fila} key={m.mes}>
-              <Text style={pdf.celda}>{m.mes}</Text>
+            <View style={rep.fila} key={m.mes}>
+              <Text style={rep.celda}>{m.mes}</Text>
               {TIPOS_SACRAMENTO.map((t) => (
-                <Text key={t} style={pdf.celdaDer}>{m[t]}</Text>
+                <Text key={t} style={rep.celdaDer}>{m[t]}</Text>
               ))}
-              <Text style={pdf.celdaDer}>{m.total}</Text>
+              <Text style={rep.celdaDer}>{m.total}</Text>
             </View>
           ))}
         </View>
 
-        <Text style={pdf.h2}>Edades al recibir el sacramento</Text>
-        <View style={pdf.tabla}>
-          <View style={pdf.fila}>
-            <Text style={pdf.celdaHead}>Rango de edad</Text>
+        <Text style={rep.h2}>Edades al recibir el sacramento</Text>
+        <View style={rep.tabla}>
+          <View style={rep.fila}>
+            <Text style={rep.celdaHead}>Rango de edad</Text>
             {(["BAUTISMO", "COMUNION", "CONFIRMACION"] as const).map((t) => (
-              <Text key={t} style={[pdf.celdaHead, { textAlign: "right" }]}>{t.slice(0, 4)}.</Text>
+              <Text key={t} style={[rep.celdaHead, { textAlign: "right" }]}>{t.slice(0, 4)}.</Text>
             ))}
           </View>
           {inf.edades.map((e) => (
-            <View style={pdf.fila} key={e.bucket}>
-              <Text style={pdf.celda}>{e.bucket}</Text>
-              <Text style={pdf.celdaDer}>{e.BAUTISMO}</Text>
-              <Text style={pdf.celdaDer}>{e.COMUNION}</Text>
-              <Text style={pdf.celdaDer}>{e.CONFIRMACION}</Text>
+            <View style={rep.fila} key={e.bucket}>
+              <Text style={rep.celda}>{e.bucket}</Text>
+              <Text style={rep.celdaDer}>{e.BAUTISMO}</Text>
+              <Text style={rep.celdaDer}>{e.COMUNION}</Text>
+              <Text style={rep.celdaDer}>{e.CONFIRMACION}</Text>
             </View>
           ))}
         </View>
 
-        <Text style={pdf.h2}>Estado de libros (acumulado, capacidad {capacidad} actas)</Text>
-        <View style={pdf.tabla}>
-          <View style={pdf.fila}>
-            <Text style={pdf.celdaHead}>Sacramento</Text>
-            <Text style={pdf.celdaHead}>Libro</Text>
-            <Text style={[pdf.celdaHead, { textAlign: "right" }]}>Usadas</Text>
+        <Text style={rep.h2}>Estado de libros (acumulado, capacidad {capacidad} actas)</Text>
+        <View style={rep.tabla}>
+          <View style={rep.fila}>
+            <Text style={rep.celdaHead}>Sacramento</Text>
+            <Text style={rep.celdaHead}>Libro</Text>
+            <Text style={[rep.celdaHead, { textAlign: "right" }]}>Usadas</Text>
           </View>
           {libros.map((l, i) => (
-            <View style={pdf.fila} key={i}>
-              <Text style={pdf.celda}>{l.tipo}</Text>
-              <Text style={pdf.celda}>{l.libro}</Text>
-              <Text style={pdf.celdaDer}>{l.cantidad}/{capacidad}</Text>
+            <View style={rep.fila} key={i}>
+              <Text style={rep.celda}>{l.tipo}</Text>
+              <Text style={rep.celda}>{l.libro}</Text>
+              <Text style={rep.celdaDer}>{l.cantidad}/{capacidad}</Text>
             </View>
           ))}
         </View>
 
-        <Text style={pdf.pie}>Emisión: {new Date().toLocaleString()}</Text>
+        <Text style={rep.pie}>Emisión: {new Date().toLocaleString()}</Text>
       </Page>
     </Document>
   );
@@ -295,6 +298,8 @@ export default function Estadisticas() {
   const [capacidad, setCapacidad] = useState(() => Number(localStorage.getItem(CAPACIDAD_KEY) ?? 200) || 200);
   const [cargando, setCargando] = useState(true);
   const [err, setErr] = useState("");
+  const [okMsg, setOkMsg] = useState("");
+  const [generando, setGenerando] = useState<"informe" | "planilla" | null>(null);
   const [cfg, setCfg] = useState<ParishConfig | null>(null);
   const anio = (rango.desde || String(new Date().getFullYear())).slice(0, 4);
   const [datos, setDatos] = useState<DatosObispado>(OBISPADO_VACIO);
@@ -345,6 +350,7 @@ export default function Estadisticas() {
 
   function aplicar(e: React.FormEvent) {
     e.preventDefault();
+    setOkMsg("");
     recargar(rango.desde, rango.hasta);
   }
 
@@ -367,6 +373,51 @@ export default function Estadisticas() {
     a.download = `estadisticas-${rango.desde || "todo"}_${rango.hasta || "todo"}.csv`;
     a.click();
     URL.revokeObjectURL(a.href);
+  }
+
+  /**
+   * Descarga del PDF.
+   * - En navegador: descarga directa por blob (como antes).
+   * - En la app instalada (Tauri): el WebView no maneja descargas por blob,
+   *   así que se genera el archivo y se guarda con diálogo "Guardar como".
+   */
+  async function bajarPDF(cual: "informe" | "planilla") {
+    if (!inf || !cfg || generando) return;
+    setErr("");
+    setOkMsg("");
+    setGenerando(cual);
+    try {
+      const doc =
+        cual === "informe" ? (
+          <InformeDoc inf={inf} libros={libros} capacidad={capacidad} cfg={cfg} />
+        ) : (
+          <PlanillaDoc inf={inf} datos={datos} anio={anio} cfg={cfg} />
+        );
+      const nombre =
+        cual === "informe"
+          ? `informe-${rango.desde || "todo"}_${rango.hasta || "todo"}.pdf`
+          : `planilla-obispado-${anio}.pdf`;
+      const blob = await pdf(doc).toBlob();
+      if (!isTauri()) {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = nombre;
+        a.click();
+        URL.revokeObjectURL(a.href);
+        return;
+      }
+      const destino = await save({
+        defaultPath: nombre,
+        filters: [{ name: "PDF", extensions: ["pdf"] }],
+      });
+      if (!destino) return; // usuario canceló
+      await writeFile(destino, new Uint8Array(await blob.arrayBuffer()));
+      setOkMsg(`PDF guardado en ${destino}.`);
+    } catch (e) {
+      setErr(mensajeError(e, "No se pudo generar el PDF."));
+    } finally {
+      setGenerando(null);
+    }
   }
 
   const maxMes = Math.max(1, ...((inf?.porMes ?? []).map((m) => m.total)));
@@ -399,31 +450,32 @@ export default function Estadisticas() {
         </div>
         <div className="flex items-end gap-2 md:col-span-2">
           <button className="bg-parroquia-900 hover:bg-parroquia-700 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors">Generar</button>
-          {inf && cfg && (
-            <PDFDownloadLink
-              document={<InformeDoc inf={inf} libros={libros} capacidad={capacidad} cfg={cfg} />}
-              fileName={`informe-${rango.desde || "todo"}_${rango.hasta || "todo"}.pdf`}
-              className="border border-slate-300 dark:border-slate-500 rounded-lg px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors inline-flex items-center gap-1.5"
-            >
-              {({ loading }) => (<><Download size={14} />{loading ? "Generando…" : "Informe PDF"}</>)}
-            </PDFDownloadLink>
-          )}
-          {inf && cfg && (
-            <PDFDownloadLink
-              document={<PlanillaDoc inf={inf} datos={datos} anio={anio} cfg={cfg} />}
-              fileName={`planilla-obispado-${anio}.pdf`}
-              className="bg-emerald-800 hover:bg-emerald-700 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors inline-flex items-center gap-1.5"
-            >
-              {({ loading }) => (<><Download size={14} />{loading ? "Generando…" : "Planilla Obispado"}</>)}
-            </PDFDownloadLink>
-          )}
-          <button type="button" onClick={bajarCSV} disabled={!inf} className="border border-slate-300 dark:border-slate-500 rounded-lg px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors inline-flex items-center gap-1.5 disabled:opacity-40">
-            <Download size={14} />CSV
+          <button
+            type="button"
+            onClick={() => void bajarPDF("informe")}
+            disabled={!inf || !cfg || generando !== null}
+            className="border border-slate-300 dark:border-slate-500 rounded-lg px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors inline-flex items-center gap-1.5 disabled:opacity-40"
+          >
+            <Download size={14} />{generando === "informe" ? "Generando…" : "Informe PDF"}
           </button>
+          <button
+            type="button"
+            onClick={() => void bajarPDF("planilla")}
+            disabled={!inf || !cfg || generando !== null}
+            className="bg-emerald-800 hover:bg-emerald-700 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors inline-flex items-center gap-1.5 disabled:opacity-40"
+          >
+            <Download size={14} />{generando === "planilla" ? "Generando…" : "Planilla Obispado"}
+          </button>
+          {false && (
+            <button type="button" onClick={bajarCSV} disabled={!inf} className="border border-slate-300 dark:border-slate-500 rounded-lg px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors inline-flex items-center gap-1.5 disabled:opacity-40">
+              <Download size={14} />CSV
+            </button>
+          )}
         </div>
       </form>
 
       {err && <p className="text-sm text-red-700 dark:text-red-200 bg-red-50 dark:bg-red-900/50 border border-red-200 dark:border-red-700 rounded p-2">{err}</p>}
+      {okMsg && <p className="text-sm text-emerald-800 dark:text-emerald-200 bg-emerald-50 dark:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-700 rounded p-2">{okMsg}</p>}
 
       {cargando ? (
         <p className="text-sm text-slate-500 dark:text-slate-300">Generando informe…</p>

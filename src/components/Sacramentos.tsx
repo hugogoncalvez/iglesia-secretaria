@@ -1,6 +1,8 @@
 import { useEffect, useId, useState } from "react";
 import { Eye, FileText, Pencil, ScrollText, SearchX, Trash2, X } from "lucide-react";
-import { PDFDownloadLink } from "@react-pdf/renderer";
+import { pdf } from "@react-pdf/renderer";
+import { save } from "@tauri-apps/plugin-dialog";
+import { writeFile } from "@tauri-apps/plugin-fs";
 import {
   CON_CERTIFICADO,
   DEFAULT_PARISH,
@@ -14,6 +16,7 @@ import {
   getConfig,
   getDetalle,
   getLegajoPersona,
+  isTauri,
   listActas,
   nombreActa,
   type ActaDetalle,
@@ -219,6 +222,7 @@ export default function Sacramentos({ actual }: { actual: string }) {
   const [viendo, setViendo] = useState<ActaDetalle | null>(null);
   const [borrando, setBorrando] = useState<ActaRow | null>(null);
   const [imprimiendo, setImprimiendo] = useState<ActaDetalle | null>(null);
+  const [certGenerando, setCertGenerando] = useState(false);
   const [legajoData, setLegajoData] = useState<LegajoPersona | null>(null);
   const [cargandoLegajo, setCargandoLegajo] = useState(false);
   const [cfg, setCfg] = useState<ParishConfig>(DEFAULT_PARISH);
@@ -374,6 +378,37 @@ export default function Sacramentos({ actual }: { actual: string }) {
     setImprimiendo(d);
     getConfig().then(setCfg).catch(() => undefined);
     selloPng().then(setSello).catch(() => setSello(null));
+  }
+
+  // Descarga del certificado: blob directo en web, "Guardar como" en la app instalada.
+  async function bajarCertificado() {
+    if (!imprimiendo || certGenerando) return;
+    setCertGenerando(true);
+    try {
+      const blob = await pdf(
+        <CertificadoDoc a={imprimiendo} cfg={cfg} sello={sello} />
+      ).toBlob();
+      const nombre = `certificado-${imprimiendo.tipo.toLowerCase()}-${imprimiendo.id}.pdf`;
+      if (!isTauri()) {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = nombre;
+        a.click();
+        URL.revokeObjectURL(a.href);
+        return;
+      }
+      const destino = await save({
+        defaultPath: nombre,
+        filters: [{ name: "PDF", extensions: ["pdf"] }],
+      });
+      if (!destino) return; // usuario canceló
+      await writeFile(destino, new Uint8Array(await blob.arrayBuffer()));
+      avisar(`PDF guardado en ${destino}.`);
+    } catch (e) {
+      avisar(mensajeError(e, "No se pudo generar el PDF."), "error");
+    } finally {
+      setCertGenerando(false);
+    }
   }
 
   async function cargarDemo() {
@@ -799,13 +834,13 @@ export default function Sacramentos({ actual }: { actual: string }) {
             <CertificadoPrintable a={imprimiendo} cfg={cfg} />
             <div className="flex flex-wrap gap-2">
               <button className="bg-parroquia-900 hover:bg-parroquia-700 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors" onClick={() => window.print()}>Imprimir</button>
-              <PDFDownloadLink
-                document={<CertificadoDoc a={imprimiendo} cfg={cfg} sello={sello} />}
-                fileName={`certificado-${imprimiendo.tipo.toLowerCase()}-${imprimiendo.id}.pdf`}
-                className="border border-slate-300 dark:border-slate-500 rounded-lg px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+              <button
+                className="border border-slate-300 dark:border-slate-500 rounded-lg px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-40"
+                disabled={certGenerando}
+                onClick={() => void bajarCertificado()}
               >
-                {({ loading }) => (loading ? "Generando PDF…" : "Descargar PDF")}
-              </PDFDownloadLink>
+                {certGenerando ? "Generando PDF…" : "Descargar PDF"}
+              </button>
               <button className="border border-slate-300 dark:border-slate-500 rounded-lg px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors" onClick={() => setImprimiendo(null)}>Cerrar</button>
             </div>
           </div>
