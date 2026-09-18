@@ -692,6 +692,8 @@ export interface LegajoItem {
 export interface LegajoPersona {
   persona: Persona;
   hitos: LegajoItem[];
+  /** Cónyuges distintos (de sus matrimonios) para las pestañas del legajo. */
+  conyuges: { id: number; nombre: string }[];
 }
 
 /** Obtiene el legajo/historial de sacramentos de una persona por su ID (o por el ID de un acta). */
@@ -728,6 +730,7 @@ export async function getLegajoPersona(personaId: number): Promise<LegajoPersona
     );
 
     const hitos: LegajoItem[] = [];
+    const conyuges = new Map<number, string>();
     for (const r of sRows) {
       let rol: "TITULAR" | "ESPOSO" | "ESPOSA" = "TITULAR";
       let conyugeNombre: string | undefined;
@@ -741,6 +744,7 @@ export async function getLegajoPersona(personaId: number): Promise<LegajoPersona
               [r.esposa_persona_id]
             );
             conyugeNombre = cony[0]?.apellido_nombres;
+            conyuges.set(r.esposa_persona_id, conyugeNombre ?? "Cónyuge");
           }
         } else if (r.esposa_persona_id === personaId) {
           rol = "ESPOSA";
@@ -750,6 +754,7 @@ export async function getLegajoPersona(personaId: number): Promise<LegajoPersona
               [r.esposo_persona_id]
             );
             conyugeNombre = cony[0]?.apellido_nombres;
+            conyuges.set(r.esposo_persona_id, conyugeNombre ?? "Cónyuge");
           }
         }
       }
@@ -769,7 +774,11 @@ export async function getLegajoPersona(personaId: number): Promise<LegajoPersona
       });
     }
 
-    return { persona, hitos };
+    return {
+      persona,
+      hitos,
+      conyuges: [...conyuges].map(([id, nombre]) => ({ id, nombre })),
+    };
   }
 
   // Fallback modo local (localStorage)
@@ -801,6 +810,7 @@ export async function getLegajoPersona(personaId: number): Promise<LegajoPersona
     )
     .sort((a, b) => a.fecha_sacramento.localeCompare(b.fecha_sacramento));
 
+  const conyuges = new Map<number, string>();
   const hitos: LegajoItem[] = misActas.map((r) => {
     let rol: "TITULAR" | "ESPOSO" | "ESPOSA" = "TITULAR";
     let conyugeNombre: string | undefined;
@@ -810,11 +820,13 @@ export async function getLegajoPersona(personaId: number): Promise<LegajoPersona
         rol = "ESPOSO";
         if (r.esposa_persona_id) {
           conyugeNombre = personas.find((p) => p.id === r.esposa_persona_id)?.apellido_nombres;
+          conyuges.set(r.esposa_persona_id, conyugeNombre ?? "Cónyuge");
         }
       } else if (r.esposa_persona_id === personaId) {
         rol = "ESPOSA";
         if (r.esposo_persona_id) {
           conyugeNombre = personas.find((p) => p.id === r.esposo_persona_id)?.apellido_nombres;
+          conyuges.set(r.esposo_persona_id, conyugeNombre ?? "Cónyuge");
         }
       }
     }
@@ -834,7 +846,11 @@ export async function getLegajoPersona(personaId: number): Promise<LegajoPersona
     };
   });
 
-  return { persona, hitos };
+  return {
+    persona,
+    hitos,
+    conyuges: [...conyuges].map(([id, nombre]) => ({ id, nombre })),
+  };
 }
 
 

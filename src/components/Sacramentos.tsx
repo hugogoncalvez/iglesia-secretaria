@@ -44,6 +44,12 @@ const ETIQUETAS_RESUMEN: { tipo: TipoSacramento; label: string; punto: string }[
 
 const inputCls = "mt-1 w-full border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1.5 bg-parroquia-100 dark:bg-noche-600 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-parroquia-700 focus:border-transparent transition-colors";
 
+/** ISO (aaaa-mm-dd) → dd-mm-aaaa para mostrar. Si no es fecha válida, devuelve el texto tal cual. */
+function fechaCorta(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || "");
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : iso || "—";
+}
+
 function Campo({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
@@ -554,7 +560,7 @@ export default function Sacramentos({ actual }: { actual: string }) {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-slate-600 dark:text-slate-300 tabular-nums">
-                    {r.fecha_sacramento}
+                    {fechaCorta(r.fecha_sacramento)}
                   </td>
                   <td className="px-4 py-3 text-slate-600 dark:text-slate-300 tabular-nums">
                     {r.libro}/{r.folio}
@@ -856,6 +862,7 @@ export default function Sacramentos({ actual }: { actual: string }) {
         <LegajoModal
           legajo={legajoData}
           onClose={() => setLegajoData(null)}
+          onCambiarPersona={(personaId) => verLegajo(personaId)}
           onVerActa={(actaId) => {
             setLegajoData(null);
             ver(actaId);
@@ -885,29 +892,57 @@ export default function Sacramentos({ actual }: { actual: string }) {
 function LegajoModal({
   legajo,
   onClose,
+  onCambiarPersona,
   onVerActa,
   onCertificado,
 }: {
   legajo: LegajoPersona;
   onClose: () => void;
+  onCambiarPersona: (personaId: number) => void;
   onVerActa: (id: number) => void;
   onCertificado: (id: number) => void;
 }) {
   const p = legajo.persona;
+  const tabs = [{ id: p.id ?? null, nombre: p.apellido_nombres || "Titular" }, ...legajo.conyuges];
   return (
     <div className="no-print fixed inset-y-0 right-0 left-[var(--sidebar-w,0px)] bg-black/40 flex items-start justify-center p-4 overflow-auto z-40">
       <div className="bg-white dark:bg-noche-700 dark:text-slate-100 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 max-w-2xl w-full p-5 space-y-4 my-6 animate-modal-in">
         <div className="flex items-start justify-between border-b dark:border-slate-600 pb-3">
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <ScrollText className="text-parroquia-700 dark:text-parroquia-400" size={22} />
+              <ScrollText className="text-parroquia-700 dark:text-parroquia-400 shrink-0" size={22} />
               <h3 className="font-display font-bold text-xl text-parroquia-900 dark:text-slate-100">
                 Legajo Sacramental
               </h3>
             </div>
-            <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 mt-1">
-              {p.apellido_nombres || "Sin nombre registrado"}
-            </p>
+            {tabs.length > 1 ? (
+              <div className="flex flex-wrap gap-1.5 mt-2" role="tablist" aria-label="Personas del legajo">
+                {tabs.map((t, i) => {
+                  const activo = i === 0;
+                  return (
+                    <button
+                      key={`${t.id ?? "tit"}-${i}`}
+                      role="tab"
+                      aria-selected={activo}
+                      title={t.nombre}
+                      disabled={activo || t.id == null}
+                      onClick={() => t.id != null && onCambiarPersona(t.id)}
+                      className={`max-w-55 truncate text-sm font-semibold px-3 py-1 rounded-full border transition-colors ${
+                        activo
+                          ? "bg-parroquia-900 text-white border-parroquia-900 cursor-default"
+                          : "border-slate-300 dark:border-slate-500 hover:bg-slate-100 dark:hover:bg-slate-600"
+                      }`}
+                    >
+                      {t.nombre}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 mt-1">
+                {p.apellido_nombres || "Sin nombre registrado"}
+              </p>
+            )}
           </div>
           <button
             onClick={onClose}
@@ -972,7 +1007,7 @@ function LegajoModal({
                             {h.tipo}
                           </span>
                           <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                            {h.fecha_sacramento || "Fecha no registrada"}
+                            {h.fecha_sacramento ? fechaCorta(h.fecha_sacramento) : "Fecha no registrada"}
                           </span>
                         </div>
                         <span className="text-xs font-mono text-slate-500 dark:text-slate-400">
@@ -1048,7 +1083,7 @@ function DetalleModal({ a, onClose, onCertificado }: { a: ActaDetalle; onClose: 
   const tituloPersona = a.tipo === "BAUTISMO" || a.tipo === "COMUNION" ? "Niño/a" : a.tipo === "CONFIRMACION" ? "Confirmando" : "Persona";
   const personas = a.tipo === "MATRIMONIO" ? [ ["Esposo", a.esposo], ["Esposa", a.esposa] ] as const : [[tituloPersona, a.persona]] as const;
   const Filas: [string, string][] = [
-    ["Fecha del sacramento", a.fecha_sacramento || "—"],
+    ["Fecha del sacramento", fechaCorta(a.fecha_sacramento)],
     [
       a.tipo === "MATRIMONIO"
         ? "Celebrante"

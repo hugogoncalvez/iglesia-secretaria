@@ -226,7 +226,7 @@ function PlanillaDoc({ inf, datos, anio, cfg }: { inf: InformeEstadistico; datos
 
         <Text style={planilla.item}>
           7. Si tienen un HOGAR DE ANCIANOS, atendido por Religiosas o pertenece a la
-          Parroquia; cuántos internos: Mujeres: {valPlanilla(datos.hogarMujeres)} Varones {valPlanilla(datos.hogarVarones)}
+          Parroquia; cuántos internos: Mujeres: {valPlanilla(datos.hogarMujeres)} Varones: {valPlanilla(datos.hogarVarones)}
         </Text>
 
         <Text style={planilla.item}>
