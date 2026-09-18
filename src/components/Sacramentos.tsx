@@ -1,6 +1,5 @@
 import { useEffect, useId, useState } from "react";
 import { Eye, FileText, Pencil, ScrollText, SearchX, Trash2, X } from "lucide-react";
-import { pdf } from "@react-pdf/renderer";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
 import {
@@ -28,7 +27,7 @@ import {
   type SacramentoInput,
   type TipoSacramento,
 } from "../lib/db";
-import { CertificadoDoc, CertificadoPrintable } from "./Certificado";
+import { CertificadoPrintable } from "./Certificado";
 import { logAccion } from "../lib/auditoria";
 import { mensajeError } from "../lib/errores";
 import { selloPng } from "../lib/sello";
@@ -387,13 +386,13 @@ export default function Sacramentos({ actual }: { actual: string }) {
   }
 
   // Descarga del certificado: blob directo en web, "Guardar como" en la app instalada.
+  // El motor PDF se carga de forma diferida para no frenar el arranque.
   async function bajarCertificado() {
     if (!imprimiendo || certGenerando) return;
     setCertGenerando(true);
     try {
-      const blob = await pdf(
-        <CertificadoDoc a={imprimiendo} cfg={cfg} sello={sello} />
-      ).toBlob();
+      const { generarCertificadoBlob } = await import("./DocumentosPdf");
+      const blob = await generarCertificadoBlob(imprimiendo, cfg, sello);
       const nombre = `certificado-${imprimiendo.tipo.toLowerCase()}-${imprimiendo.id}.pdf`;
       if (!isTauri()) {
         const a = document.createElement("a");

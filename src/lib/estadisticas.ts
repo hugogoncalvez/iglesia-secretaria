@@ -64,6 +64,34 @@ export const DESGLOSE_VACIO: DesgloseMatrimonios = {
   sinDato: 0,
 };
 
+/** Datos manuales 5–8 de la planilla del Obispado (los puntos 1–4 son automáticos). */
+export interface DatosObispado {
+  catequistas: string;
+  misioneros: string;
+  hogarMujeres: string;
+  hogarVarones: string;
+  capillas: string;
+}
+
+export const OBISPADO_VACIO: DatosObispado = {
+  catequistas: "",
+  misioneros: "",
+  hogarMujeres: "",
+  hogarVarones: "",
+  capillas: "",
+};
+
+/** Guardado por año en este equipo (no es dato sacramental: no va a la BD). */
+export const obispadoKey = (anio: string) => `iglesia_obispado_${anio}`;
+
+export function leerObispado(anio: string): DatosObispado {
+  try {
+    return { ...OBISPADO_VACIO, ...(JSON.parse(localStorage.getItem(obispadoKey(anio)) ?? "{}") as Partial<DatosObispado>) };
+  } catch {
+    return { ...OBISPADO_VACIO };
+  }
+}
+
 export interface InformeEstadistico {
   desde: string;
   hasta: string;

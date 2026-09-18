@@ -6,3 +6,4 @@
 - Matrimonios planilla 2a/2b: se infiere de `esposo_baut_*` / `esposa_baut_*` + flags `esposo_no_baut` / `esposa_no_baut` (checkbox "No bautizado" en el form). Vacío sin tilde = "sin dato" (aviso en pantalla, no entra en 2a/2b).
 - Planilla Obispado: `PlanillaDoc` en `Estadisticas.tsx` (réplica hoja oficial) + `DatosObispado` manual 5–8 guardado por año en `localStorage` (`iglesia_obispado_AAAA`). Botón "Planilla Obispado". El informe interno (`InformeDoc`) se mantiene.
 - Descargas PDF (informes + certificado): NO usar `PDFDownloadLink` (el WebView de Tauri ignora descargas blob). Usar `pdf(doc).toBlob()` + descarga directa en web / diálogo "Guardar como" + `writeFile` en instalada. Botón CSV oculto (`{false && ...}` en `Estadisticas.tsx`), código intacto.
+- Arranque: `@react-pdf/renderer` NO va en el bundle inicial (vive en `DocumentosPdf.tsx`, carga diferida con `await import`). `App.tsx` muestra el login sin esperar chequeos secundarios (ruta BD, clave defecto).

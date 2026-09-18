@@ -70,6 +70,13 @@ export default function App() {
     (async () => {
       await initDb();
       setPrimerArranque(await ensureDefaultUser());
+      const s = getSession();
+      if (s) {
+        setUsuario(s);
+        setDebeCambiarClave(await debeCambiarClaveCheck(s));
+      }
+      setLista(true);
+      // Chequeos secundarios en segundo plano: no bloquean el login.
       try {
         const b = await infoBase();
         if (isTauri() && b.modo === "local") {
@@ -80,13 +87,13 @@ export default function App() {
       } catch {
         /* sin aviso */
       }
-      const s = getSession();
       if (s) {
-        setUsuario(s);
-        setDebeCambiarClave(await debeCambiarClaveCheck(s));
-        setAvisoAdmin(await adminConClaveDefecto());
+        try {
+          setAvisoAdmin(await adminConClaveDefecto());
+        } catch {
+          /* sin aviso */
+        }
       }
-      setLista(true);
     })();
   }, []);
 
