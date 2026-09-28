@@ -1,5 +1,5 @@
 import { useEffect, useId, useState } from "react";
-import { Eye, FileText, Pencil, ScrollText, SearchX, Trash2, X } from "lucide-react";
+import { Eye, FileText, Loader2, Pencil, ScrollText, SearchX, Trash2, X } from "lucide-react";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
 import {
@@ -229,6 +229,8 @@ export default function Sacramentos({ actual }: { actual: string }) {
   const [borrando, setBorrando] = useState<ActaRow | null>(null);
   const [imprimiendo, setImprimiendo] = useState<ActaDetalle | null>(null);
   const [certGenerando, setCertGenerando] = useState(false);
+  const [guardando, setGuardando] = useState(false);
+  const [eliminando, setEliminando] = useState(false);
   const [legajoData, setLegajoData] = useState<LegajoPersona | null>(null);
   const [cargandoLegajo, setCargandoLegajo] = useState(false);
   const [cfg, setCfg] = useState<ParishConfig>(DEFAULT_PARISH);
@@ -324,7 +326,9 @@ export default function Sacramentos({ actual }: { actual: string }) {
 
   async function guardar(e: React.FormEvent) {
     e.preventDefault();
+    if (guardando) return; // evita doble clic → acta duplicada
     setError("");
+    setGuardando(true);
     try {
       // Si se tildó "No bautizado", los datos de bautismo no tienen sentido: se limpian.
       const datos: SacramentoInput = {
@@ -369,18 +373,27 @@ export default function Sacramentos({ actual }: { actual: string }) {
       avisar(eraEdicion ? "Acta actualizada." : "Acta guardada.");
     } catch (e) {
       setError(mensajeError(e));
+    } finally {
+      setGuardando(false);
     }
   }
 
   async function confirmarBorrado() {
-    if (!borrando) return;
+    if (!borrando || eliminando) return;
     const r = borrando;
-    setBorrando(null);
-    await eliminarActa(r.id);
-    void logAccion(actual, "ACTA_ELIMINAR", `${r.tipo} — ${nombreActa(r)} (Libro ${r.libro || "—"}, Folio ${r.folio || "—"})`);
-    recargar(filtros);
-    cargarConteo();
-    avisar("Acta eliminada.");
+    setEliminando(true);
+    try {
+      await eliminarActa(r.id);
+      void logAccion(actual, "ACTA_ELIMINAR", `${r.tipo} — ${nombreActa(r)} (Libro ${r.libro || "—"}, Folio ${r.folio || "—"})`);
+      setBorrando(null);
+      recargar(filtros);
+      cargarConteo();
+      avisar("Acta eliminada.");
+    } catch (e) {
+      avisar(mensajeError(e, "No se pudo eliminar."), "error");
+    } finally {
+      setEliminando(false);
+    }
   }
 
   async function ver(id: number) {
@@ -829,7 +842,13 @@ export default function Sacramentos({ actual }: { actual: string }) {
 
             {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
             <div className="flex gap-2">
-              <button className="bg-parroquia-900 hover:bg-parroquia-700 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors">{editId ? "Guardar cambios" : "Guardar acta"}</button>
+              <button
+                disabled={guardando}
+                className="bg-parroquia-900 hover:bg-parroquia-700 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:opacity-60 inline-flex items-center gap-1.5"
+              >
+                {guardando && <Loader2 size={14} className="animate-spin" />}
+                {guardando ? "Guardando…" : editId ? "Guardar cambios" : "Guardar acta"}
+              </button>
               <button type="button" className="border border-slate-300 dark:border-slate-500 rounded-lg px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors" onClick={() => setFormAbierto(false)}>Cancelar</button>
             </div>
           </form>
@@ -862,15 +881,18 @@ export default function Sacramentos({ actual }: { actual: string }) {
             <div className="flex gap-2 justify-end">
               <button
                 onClick={() => setBorrando(null)}
-                className="border border-slate-300 dark:border-slate-500 rounded-lg px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                disabled={eliminando}
+                className="border border-slate-300 dark:border-slate-500 rounded-lg px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-40"
               >
                 Cancelar
               </button>
               <button
                 onClick={confirmarBorrado}
-                className="bg-red-700 hover:bg-red-800 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+                disabled={eliminando}
+                className="bg-red-700 hover:bg-red-800 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:opacity-60 inline-flex items-center gap-1.5"
               >
-                Eliminar
+                {eliminando && <Loader2 size={14} className="animate-spin" />}
+                {eliminando ? "Eliminando…" : "Eliminar"}
               </button>
             </div>
           </div>
@@ -886,10 +908,11 @@ export default function Sacramentos({ actual }: { actual: string }) {
             <div className="flex flex-wrap gap-2">
               <button className="bg-parroquia-900 hover:bg-parroquia-700 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors" onClick={() => window.print()}>Imprimir</button>
               <button
-                className="border border-slate-300 dark:border-slate-500 rounded-lg px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-40"
+                className="border border-slate-300 dark:border-slate-500 rounded-lg px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-40 inline-flex items-center gap-1.5"
                 disabled={certGenerando}
                 onClick={() => void bajarCertificado()}
               >
+                {certGenerando && <Loader2 size={14} className="animate-spin" />}
                 {certGenerando ? "Generando PDF…" : "Descargar PDF"}
               </button>
               <button className="border border-slate-300 dark:border-slate-500 rounded-lg px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors" onClick={() => setImprimiendo(null)}>Cerrar</button>

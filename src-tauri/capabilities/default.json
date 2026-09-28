@@ -12,6 +12,19 @@
     "sql:allow-execute",
     "sql:allow-select",
     "fs:default",
-    "dialog:default"
+    "fs:allow-write-file",
+    "dialog:default",
+    {
+      "identifier": "fs:scope",
+      "allow": [
+        "$DESKTOP/**",
+        "$DOCUMENT/**",
+        "$DOWNLOAD/**",
+        "$HOME/**",
+        "$PICTURE/**",
+        "$PUBLIC/**",
+        "$VIDEO/**"
+      ]
+    }
   ]
 }

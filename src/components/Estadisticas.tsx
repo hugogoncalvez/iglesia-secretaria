@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Download } from "lucide-react";
+import { Download, Loader2 } from "lucide-react";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
 import {
@@ -253,7 +253,7 @@ export default function Estadisticas() {
             disabled={!inf || !cfg || generando !== null}
             className="border border-slate-300 dark:border-slate-500 rounded-lg px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors inline-flex items-center gap-1.5 disabled:opacity-40"
           >
-            <Download size={14} />{generando === "informe" ? "Generando…" : "Informe PDF"}
+            {generando === "informe" ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}{generando === "informe" ? "Generando…" : "Informe PDF"}
           </button>
           <button
             type="button"
@@ -261,7 +261,7 @@ export default function Estadisticas() {
             disabled={!inf || !cfg || generando !== null}
             className="bg-emerald-800 hover:bg-emerald-700 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors inline-flex items-center gap-1.5 disabled:opacity-40"
           >
-            <Download size={14} />{generando === "planilla" ? "Generando…" : "Planilla Obispado"}
+            {generando === "planilla" ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}{generando === "planilla" ? "Generando…" : "Planilla Obispado"}
           </button>
           {false && (
             <button type="button" onClick={bajarCSV} disabled={!inf} className="border border-slate-300 dark:border-slate-500 rounded-lg px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors inline-flex items-center gap-1.5 disabled:opacity-40">

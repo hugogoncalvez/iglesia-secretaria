@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { getConfig, infoBase, saveConfig, type ParishConfig } from "../lib/db";
 import { hacerBackup } from "../lib/backup";
 import { logAccion } from "../lib/auditoria";
@@ -144,8 +145,9 @@ export default function Configuracion({ actual }: { actual: string }) {
         <button
           onClick={respaldar}
           disabled={respaldando}
-          className="bg-parroquia-900 hover:bg-parroquia-700 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50"
+          className="bg-parroquia-900 hover:bg-parroquia-700 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50 inline-flex items-center gap-1.5"
         >
+          {respaldando && <Loader2 size={14} className="animate-spin" />}
           {respaldando ? "Copiando…" : "Hacer copia de seguridad"}
         </button>
         {backupMsg && <p className="text-sm text-slate-700 dark:text-slate-200 bg-parroquia-100 dark:bg-noche-600 border border-slate-200 dark:border-slate-600 rounded-lg p-2 break-all">{backupMsg}</p>}
@@ -160,8 +162,9 @@ export default function Configuracion({ actual }: { actual: string }) {
           <button
             onClick={elegir}
             disabled={eligiendo}
-            className="bg-parroquia-900 hover:bg-parroquia-700 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50"
+            className="bg-parroquia-900 hover:bg-parroquia-700 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50 inline-flex items-center gap-1.5"
           >
+            {eligiendo && <Loader2 size={14} className="animate-spin" />}
             {eligiendo ? "Leyendo…" : "Elegir copia…"}
           </button>
         ) : (
@@ -175,8 +178,9 @@ export default function Configuracion({ actual }: { actual: string }) {
               <button
                 onClick={restaurar}
                 disabled={restaurando}
-                className="bg-red-700 hover:bg-red-800 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50"
+                className="bg-red-700 hover:bg-red-800 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50 inline-flex items-center gap-1.5"
               >
+                {restaurando && <Loader2 size={14} className="animate-spin" />}
                 {restaurando ? "Restaurando…" : "Confirmar restauración"}
               </button>
               <button
