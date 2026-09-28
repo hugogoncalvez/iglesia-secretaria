@@ -39,6 +39,7 @@ const ETIQUETAS_RESUMEN: { tipo: TipoSacramento; label: string; punto: string }[
   { tipo: "COMUNION", label: "Comuniones", punto: "bg-[#065F46]" },
   { tipo: "CONFIRMACION", label: "Confirmaciones", punto: "bg-[#5B21B6]" },
   { tipo: "MATRIMONIO", label: "Matrimonios", punto: "bg-[#9D174D]" },
+  { tipo: "CONFESION", label: "Primera Confesión", punto: "bg-[#B45309]" },
 ];
 
 const inputCls = "mt-1 w-full border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1.5 bg-parroquia-100 dark:bg-noche-600 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-parroquia-700 focus:border-transparent transition-colors";
@@ -251,6 +252,7 @@ export default function Sacramentos({ actual }: { actual: string }) {
     COMUNION: 0,
     CONFIRMACION: 0,
     MATRIMONIO: 0,
+    CONFESION: 0,
   });
   const { items:avisos, push:avisar } = useToasts();
 
@@ -333,6 +335,8 @@ export default function Sacramentos({ actual }: { actual: string }) {
         ...(form.esposa_no_baut
           ? { esposa_baut_lugar: "", esposa_baut_fecha: "", esposa_baut_libro: "", esposa_baut_folio: "" }
           : {}),
+        // Primera Confesión no lleva libro: nunca se guarda Libro/Folio.
+        ...(form.tipo === "CONFESION" ? { libro: "", folio: "" } : {}),
       };
       if (datos.tipo === "MATRIMONIO") {
         if (!datos.esposo.apellido_nombres.trim() || !datos.esposa.apellido_nombres.trim())
@@ -341,6 +345,12 @@ export default function Sacramentos({ actual }: { actual: string }) {
         throw new Error("Cargá apellido y nombres.");
       }
       if (!datos.fecha_sacramento) throw new Error("Cargá la fecha del sacramento.");
+      if (datos.tipo === "CONFIRMACION") {
+        if (datos.conf_padrino_sel === "PADRINO" && !datos.padrino.trim())
+          throw new Error("Marcaste Padrino para el certificado pero no cargaste el nombre.");
+        if (datos.conf_padrino_sel === "MADRINA" && !datos.madrina.trim())
+          throw new Error("Marcaste Madrina para el certificado pero no cargaste el nombre.");
+      }
       const eraEdicion = editId !== null;
       if (editId) await actualizarActa(editId, datos);
       else await crearActa(datos);
@@ -431,7 +441,7 @@ export default function Sacramentos({ actual }: { actual: string }) {
   const setF = (k: keyof SacramentoInput) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm({ ...form, [k]: e.target.value });
 
-  const totalActas = conteo.BAUTISMO + conteo.COMUNION + conteo.CONFIRMACION + conteo.MATRIMONIO;
+  const totalActas = conteo.BAUTISMO + conteo.COMUNION + conteo.CONFIRMACION + conteo.MATRIMONIO + conteo.CONFESION;
   const hayFiltros = filtros.texto !== "" || filtros.tipo !== "TODOS" || filtros.fecha !== "";
 
   const totalPaginas = Math.max(1, Math.ceil(filas.length / porPagina));
@@ -475,7 +485,7 @@ export default function Sacramentos({ actual }: { actual: string }) {
       </div>
 
       {/* Resumen */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
         {ETIQUETAS_RESUMEN.map(({ tipo, label, punto }) => {
           const activo = filtros.tipo === tipo;
           return (
@@ -510,7 +520,7 @@ export default function Sacramentos({ actual }: { actual: string }) {
               <p className="text-sm text-slate-500 dark:text-slate-300">Sin actas. Creá la primera con “+ Acta”.</p>
               {import.meta.env.DEV && (
                 <button onClick={cargarDemo} className="text-sm border dark:border-slate-500 rounded px-3 py-1.5">
-                  Cargar datos de prueba (4 actas)
+                  Cargar datos de prueba (5 actas)
                 </button>
               )}
             </div>
@@ -553,6 +563,7 @@ export default function Sacramentos({ actual }: { actual: string }) {
                       r.tipo === "COMUNION"      ? "bg-[#D1FAE5] text-[#065F46] dark:bg-emerald-900/40 dark:text-emerald-300" :
                       r.tipo === "CONFIRMACION"  ? "bg-[#EDE9FE] text-[#5B21B6] dark:bg-violet-900/40 dark:text-violet-300" :
                       r.tipo === "MATRIMONIO"    ? "bg-[#FCE7F3] text-[#9D174D] dark:bg-rose-900/40 dark:text-rose-300" :
+                      r.tipo === "CONFESION"     ? "bg-[#FEF3C7] text-[#92400E] dark:bg-amber-900/40 dark:text-amber-300" :
                       "bg-slate-100 text-slate-600"
                     }`}>
                       {r.tipo}
@@ -562,7 +573,7 @@ export default function Sacramentos({ actual }: { actual: string }) {
                     {fechaCorta(r.fecha_sacramento)}
                   </td>
                   <td className="px-4 py-3 text-slate-600 dark:text-slate-300 tabular-nums">
-                    {r.libro}/{r.folio}
+                    {r.libro || r.folio ? `${r.libro}/${r.folio}` : "—"}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1">
@@ -709,7 +720,7 @@ export default function Sacramentos({ actual }: { actual: string }) {
               </>
             ) : (
               <PersonaForm
-                titulo={f.tipo === "BAUTISMO" || f.tipo === "COMUNION" ? "Niño/a" : f.tipo === "CONFIRMACION" ? "Confirmando" : "Persona"}
+                titulo={f.tipo === "BAUTISMO" || f.tipo === "COMUNION" || f.tipo === "CONFESION" ? "Niño/a" : f.tipo === "CONFIRMACION" ? "Confirmando" : "Persona"}
                 value={f.persona}
                 onChange={(p) => setForm({ ...form, persona: p })}
               />
@@ -732,6 +743,8 @@ export default function Sacramentos({ actual }: { actual: string }) {
               <Campo label="Parroquia / Capilla">
                 <input className={inputCls} value={f.parroquia_capilla} onChange={setF("parroquia_capilla")} />
               </Campo>
+              {/* Primera Confesión no lleva libro: no se pide ni se guarda. */}
+              {f.tipo !== "CONFESION" && (
               <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-3">
                 <Campo label="Libro">
                   <input className={inputCls} value={f.libro} onChange={setF("libro")} />
@@ -740,6 +753,7 @@ export default function Sacramentos({ actual }: { actual: string }) {
                   <input className={inputCls} value={f.folio} onChange={setF("folio")} />
                 </Campo>
               </div>
+              )}
               {f.tipo === "CONFIRMACION" && (
                 <div className="md:col-span-3">
                   <BautismoPrevio
@@ -758,6 +772,38 @@ export default function Sacramentos({ actual }: { actual: string }) {
                   <Campo label="Madrina">
                     <input className={inputCls} value={f.madrina} onChange={setF("madrina")} />
                   </Campo>
+                </div>
+              )}
+              {f.tipo === "CONFIRMACION" && (
+                <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <Campo label="Padrino">
+                      <input className={inputCls} value={f.padrino} onChange={setF("padrino")} />
+                    </Campo>
+                    <label className="mt-1.5 flex items-center gap-2 text-sm cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 accent-parroquia-900"
+                        checked={f.conf_padrino_sel === "PADRINO"}
+                        onChange={(e) => setForm({ ...form, conf_padrino_sel: e.target.checked ? "PADRINO" : "" })}
+                      />
+                      Va en el certificado
+                    </label>
+                  </div>
+                  <div>
+                    <Campo label="Madrina">
+                      <input className={inputCls} value={f.madrina} onChange={setF("madrina")} />
+                    </Campo>
+                    <label className="mt-1.5 flex items-center gap-2 text-sm cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 accent-parroquia-900"
+                        checked={f.conf_padrino_sel === "MADRINA"}
+                        onChange={(e) => setForm({ ...form, conf_padrino_sel: e.target.checked ? "MADRINA" : "" })}
+                      />
+                      Va en el certificado
+                    </label>
+                  </div>
                 </div>
               )}
               {f.tipo === "MATRIMONIO" && (
@@ -981,6 +1027,8 @@ function LegajoModal({
                     ? "bg-[#D1FAE5] text-[#065F46] dark:bg-emerald-900/40 dark:text-emerald-300"
                     : h.tipo === "CONFIRMACION"
                     ? "bg-[#EDE9FE] text-[#5B21B6] dark:bg-violet-900/40 dark:text-violet-300"
+                    : h.tipo === "CONFESION"
+                    ? "bg-[#FEF3C7] text-[#92400E] dark:bg-amber-900/40 dark:text-amber-300"
                     : "bg-[#FCE7F3] text-[#9D174D] dark:bg-rose-900/40 dark:text-rose-300";
 
                 const dotColor =
@@ -990,6 +1038,8 @@ function LegajoModal({
                     ? "bg-[#065F46]"
                     : h.tipo === "CONFIRMACION"
                     ? "bg-[#5B21B6]"
+                    : h.tipo === "CONFESION"
+                    ? "bg-[#B45309]"
                     : "bg-[#9D174D]";
 
                 return (
@@ -1009,9 +1059,11 @@ function LegajoModal({
                             {h.fecha_sacramento ? fechaCorta(h.fecha_sacramento) : "Fecha no registrada"}
                           </span>
                         </div>
-                        <span className="text-xs font-mono text-slate-500 dark:text-slate-400">
-                          Libro {h.libro || "—"} / Folio {h.folio || "—"}
-                        </span>
+                        {h.tipo !== "CONFESION" && (
+                          <span className="text-xs font-mono text-slate-500 dark:text-slate-400">
+                            Libro {h.libro || "—"} / Folio {h.folio || "—"}
+                          </span>
+                        )}
                       </div>
 
                       {h.tipo === "MATRIMONIO" && h.conyugeNombre && (
@@ -1079,7 +1131,7 @@ function textoBautismo(a: ActaDetalle, prefijo: "esposo_baut" | "esposa_baut" | 
 }
 
 function DetalleModal({ a, onClose, onCertificado }: { a: ActaDetalle; onClose: () => void; onCertificado: () => void }) {
-  const tituloPersona = a.tipo === "BAUTISMO" || a.tipo === "COMUNION" ? "Niño/a" : a.tipo === "CONFIRMACION" ? "Confirmando" : "Persona";
+  const tituloPersona = a.tipo === "BAUTISMO" || a.tipo === "COMUNION" || a.tipo === "CONFESION" ? "Niño/a" : a.tipo === "CONFIRMACION" ? "Confirmando" : "Persona";
   const personas = a.tipo === "MATRIMONIO" ? [ ["Esposo", a.esposo], ["Esposa", a.esposa] ] as const : [[tituloPersona, a.persona]] as const;
   const Filas: [string, string][] = [
     ["Fecha del sacramento", fechaCorta(a.fecha_sacramento)],
@@ -1092,10 +1144,22 @@ function DetalleModal({ a, onClose, onCertificado }: { a: ActaDetalle; onClose: 
       a.ministro_celebrante || "—",
     ],
     ["Parroquia / Capilla", a.parroquia_capilla || "—"],
-    ["Libro / Folio", `${a.libro || "—"} / ${a.folio || "—"}`],
+    ...(a.tipo === "CONFESION" ? [] : [["Libro / Folio", `${a.libro || "—"} / ${a.folio || "—"}`] as [string, string]]),
   ];
   if (a.tipo === "BAUTISMO") Filas.push(["Padrinos", `${a.padrino || "—"} / ${a.madrina || "—"}`]);
   if (a.tipo === "CONFIRMACION") Filas.push(["Bautismo previo", textoBautismo(a, "conf_baut")]);
+  if (a.tipo === "CONFIRMACION") {
+    Filas.push(["Padrino", a.padrino || "—"]);
+    Filas.push(["Madrina", a.madrina || "—"]);
+    Filas.push([
+      "Va en el certificado",
+      a.conf_padrino_sel === "PADRINO"
+        ? `Padrino: ${a.padrino || "—"}`
+        : a.conf_padrino_sel === "MADRINA"
+          ? `Madrina: ${a.madrina || "—"}`
+          : "Ninguno",
+    ]);
+  }
   if (a.tipo === "MATRIMONIO") {
     Filas.push(["Bautismo del esposo", textoBautismo(a, "esposo_baut", a.esposo_no_baut)]);
     Filas.push(["Bautismo de la esposa", textoBautismo(a, "esposa_baut", a.esposa_no_baut)]);
@@ -1111,7 +1175,7 @@ function DetalleModal({ a, onClose, onCertificado }: { a: ActaDetalle; onClose: 
   return (
     <div className="no-print fixed inset-y-0 right-0 left-[var(--sidebar-w,0px)] bg-black/40 flex items-start justify-center p-4 overflow-auto">
       <div className="bg-white dark:bg-noche-700 dark:text-slate-100 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 max-w-2xl w-full p-4 space-y-3 my-6 animate-modal-in">
-        <h3 className="font-display font-bold text-lg">Acta de {a.tipo} — Libro {a.libro || "—"}, Folio {a.folio || "—"}</h3>
+        <h3 className="font-display font-bold text-lg">Acta de {a.tipo}{a.tipo === "CONFESION" ? "" : <> — Libro {a.libro || "—"}, Folio {a.folio || "—"}</>}</h3>
         {personas.map(([titulo, p]) => (
           <div key={titulo} className="border dark:border-slate-500 rounded-lg p-3 text-sm grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1">
             <p className="md:col-span-2 font-bold">{titulo}: {p.apellido_nombres}</p>

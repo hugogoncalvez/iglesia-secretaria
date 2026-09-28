@@ -1,6 +1,9 @@
 # Memoria del proyecto — Secretaría Iglesia
 
 - Estado: EN DESARROLLO. La BD final está VACÍA, sin cargas reales. Se puede cambiar esquema/libremente sin migraciones de datos históricos.
+- ARRANQUE DE CERO en la parroquia: no hay actas viejas que respetar. No hace falta compatibilidad hacia atrás con registros existentes (fallbacks `leg()`/`?? ""` solo por seguridad, no por datos reales).
+- Certificados ornamentales (Confesión/Comunión/Confirmación): fondo JPG en `public/` extraído del modelo (nombres anteriores parchados con clonado de textura + "primera vez" corregido en Comunión) + datos sobreimpresos en coordenadas del viewBox (`Certificado.tsx` SVG) y en puntos (`DocumentosPdf.tsx`, página a medida). Firma Great Vibes (`public/fonts/`, OFL) desde `cfg.parroco`; cargo `Párroco ...` desde `cfg.parroquia`. Confirmación: padrino/madrina + `conf_padrino_sel` ("PADRINO"|"MADRINA"|"") con checks excluyentes en el form.
+- PDF ornamental: página con tamaño custom de números exactos en binario (NO `size="A4" orientation`, NO 841.89/595.28: el fondo quedaba una fracción de punto más alto y el texto se iba a 2ª hoja). Rayita guía dorada `#aea35a` bajo la firma.
 - Cliente: Obispado de Posadas. Planilla modelo: `Datos Estadísticos-2025-Planilla.pdf`.
 - PDF de estadísticas actual (`src/components/Estadisticas.tsx` `InformeDoc`) es informe interno, NO la planilla oficial. Pendiente: nuevo PDF réplica de la planilla + inputs manuales (catequistas, misioneros, hogar, capillas).
 - Matrimonios planilla 2a/2b: se infiere de `esposo_baut_*` / `esposa_baut_*` + flags `esposo_no_baut` / `esposa_no_baut` (checkbox "No bautizado" en el form). Vacío sin tilde = "sin dato" (aviso en pantalla, no entra en 2a/2b).

@@ -50,6 +50,7 @@ export async function sembrarDemo(): Promise<number> {
     conf_baut_fecha: "",
     conf_baut_libro: "",
     conf_baut_folio: "",
+    conf_padrino_sel: "" as const,
   };
 
   const bautismo: SacramentoInput = {
@@ -119,6 +120,9 @@ export async function sembrarDemo(): Promise<number> {
     conf_baut_fecha: "2010-03-14",
     conf_baut_libro: "9",
     conf_baut_folio: "31",
+    padrino: "Alvez, Ramón Antonio",
+    madrina: "Sosa, Marta Elena",
+    conf_padrino_sel: "PADRINO",
   };
 
   const matrimonio: SacramentoInput = {
@@ -162,8 +166,29 @@ export async function sembrarDemo(): Promise<number> {
     referencia_folios: "12",
   };
 
-  for (const acta of [bautismo, comunion, confirmacion, matrimonio]) {
+  const confesion: SacramentoInput = {
+    ...base,
+    ...vacioBaut,
+    tipo: "CONFESION",
+    persona: P({
+      apellido_nombres: "Gómez, Santiago Andrés",
+      documento: "57345678",
+      fecha_nacimiento: "2016-05-30",
+      lugar_nacimiento: "Garupá",
+      domicilio: "Barrio Santa Cruz, Garupá",
+      nombre_padre: "Gómez, Andrés Ramón",
+      nombre_madre: "Silva, Carmen Beatriz",
+    }),
+    esposo: { ...PERSONA_VACIA },
+    esposa: { ...PERSONA_VACIA },
+    fecha_sacramento: "2025-09-12",
+    ministro_celebrante: "Pbro. Juan Carlos Méndez",
+    libro: "",
+    folio: "",
+  };
+
+  for (const acta of [bautismo, comunion, confirmacion, matrimonio, confesion]) {
     await crearActa(acta);
   }
-  return 4;
+  return 5;
 }

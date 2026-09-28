@@ -3,6 +3,7 @@ import { Download } from "lucide-react";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
 import {
+  ABREV_TIPO,
   TIPOS_SACRAMENTO,
   getConfig,
   isTauri,
@@ -26,6 +27,7 @@ const ETIQUETAS: { tipo: TipoSacramento; label: string; punto: string }[] = [
   { tipo: "COMUNION", label: "Comuniones", punto: "bg-[#065F46]" },
   { tipo: "CONFIRMACION", label: "Confirmaciones", punto: "bg-[#5B21B6]" },
   { tipo: "MATRIMONIO", label: "Matrimonios", punto: "bg-[#9D174D]" },
+  { tipo: "CONFESION", label: "Primera Confesión", punto: "bg-[#B45309]" },
 ];
 
 const CAPACIDAD_KEY = "iglesia_capacidad_libro";
@@ -327,7 +329,7 @@ export default function Estadisticas() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
             {ETIQUETAS.map(({ tipo, label, punto }) => (
               <div key={tipo} className="flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-noche-700 px-3 py-2 shadow-sm">
                 <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${punto}`} />
@@ -346,7 +348,7 @@ export default function Estadisticas() {
                 <thead>
                   <tr className="text-xs uppercase tracking-wide text-parroquia-900 dark:text-slate-300">
                     <th className="px-4 py-2 text-left font-semibold">Mes</th>
-                    {TIPOS_SACRAMENTO.map((t) => <th key={t} className="px-2 py-2 text-right font-semibold">{t.slice(0, 4)}.</th>)}
+                    {TIPOS_SACRAMENTO.map((t) => <th key={t} className="px-2 py-2 text-right font-semibold">{ABREV_TIPO[t]}</th>)}
                     <th className="px-4 py-2 text-right font-semibold">Total</th>
                   </tr>
                 </thead>

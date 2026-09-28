@@ -3,23 +3,46 @@ import { esNoSqlite, mensajeError } from "./errores";
 
 // Modelo según actas de los libros:
 // - personas: registro único de personas (niño/a, contrayentes, etc.)
-// - sacramentos: actas unificadas BAUTISMO / COMUNION / CONFIRMACION / MATRIMONIO
-// Certificado imprimible por sistema: solo COMUNION y CONFIRMACION.
+// - sacramentos: actas unificadas BAUTISMO / COMUNION / CONFIRMACION / MATRIMONIO / CONFESION
+//   (CONFESION = Primera Confesión / Reconciliación: registro interno de la parroquia,
+//   no entra en la planilla del Obispado).
+// Certificado imprimible por sistema: COMUNION, CONFIRMACION y CONFESION
+// (este último con diseño ornamental propio).
 
 export type TipoSacramento =
   | "BAUTISMO"
   | "COMUNION"
   | "CONFIRMACION"
-  | "MATRIMONIO";
+  | "MATRIMONIO"
+  | "CONFESION";
 
 export const TIPOS_SACRAMENTO: TipoSacramento[] = [
   "BAUTISMO",
   "COMUNION",
   "CONFIRMACION",
   "MATRIMONIO",
+  "CONFESION",
 ];
 
-export const CON_CERTIFICADO: TipoSacramento[] = ["COMUNION", "CONFIRMACION"];
+export const CON_CERTIFICADO: TipoSacramento[] = ["COMUNION", "CONFIRMACION", "CONFESION"];
+
+/** Nombre legible para mostrar en pantalla. */
+export const ETIQUETA_TIPO: Record<TipoSacramento, string> = {
+  BAUTISMO: "Bautismo",
+  COMUNION: "Comunión",
+  CONFIRMACION: "Confirmación",
+  MATRIMONIO: "Matrimonio",
+  CONFESION: "Primera Confesión",
+};
+
+/** Abreviatura para columnas angostas (CONFIRMACION y CONFESION no chocan). */
+export const ABREV_TIPO: Record<TipoSacramento, string> = {
+  BAUTISMO: "Baut.",
+  COMUNION: "Com.",
+  CONFIRMACION: "Confirm.",
+  MATRIMONIO: "Matr.",
+  CONFESION: "1ª Conf.",
+};
 
 export interface Persona {
   id?: number;
@@ -82,8 +105,8 @@ export interface SacramentoInput {
   libro: string;
   folio: string;
   parroquia_capilla: string;
-  padrino: string; // bautismo y matrimonio
-  madrina: string; // bautismo y matrimonio
+  padrino: string; // bautismo, matrimonio y confirmación
+  madrina: string; // bautismo, matrimonio y confirmación
   notas_marginales: string;
   bautizado_en_parroquia: string; // confirmación (+ dato previo en matrimonio)
   domicilio_matrimonial: string; // matrimonio: "El matrimonio se domiciliará en"
@@ -102,6 +125,8 @@ export interface SacramentoInput {
   conf_baut_fecha: string;
   conf_baut_libro: string;
   conf_baut_folio: string;
+  /** Confirmación: cuál de los dos va impreso en el certificado ("": ninguno). */
+  conf_padrino_sel: "PADRINO" | "MADRINA" | "";
 }
 
 export const SACRAMENTO_VACIO: SacramentoInput = {
@@ -134,6 +159,7 @@ export const SACRAMENTO_VACIO: SacramentoInput = {
   conf_baut_fecha: "",
   conf_baut_libro: "",
   conf_baut_folio: "",
+  conf_padrino_sel: "",
 };
 
 export interface ActaDetalle extends SacramentoInput {
@@ -232,6 +258,7 @@ async function ensureColumnas() {
     "conf_baut_fecha",
     "conf_baut_libro",
     "conf_baut_folio",
+    "conf_padrino_sel",
   ];
   for (const col of nuevas) {
     if (!tiene.has(col)) {
@@ -316,7 +343,8 @@ export async function initDb(): Promise<Mode> {
         conf_baut_lugar TEXT NOT NULL DEFAULT '',
         conf_baut_fecha TEXT NOT NULL DEFAULT '',
         conf_baut_libro TEXT NOT NULL DEFAULT '',
-        conf_baut_folio TEXT NOT NULL DEFAULT ''
+        conf_baut_folio TEXT NOT NULL DEFAULT '',
+        conf_padrino_sel TEXT NOT NULL DEFAULT ''
       );
     `);
     await ensureColumnas();
@@ -398,6 +426,7 @@ const COLS_ACTA_MIG = [
   "conf_baut_fecha",
   "conf_baut_libro",
   "conf_baut_folio",
+  "conf_padrino_sel",
 ];
 
 /**
@@ -586,6 +615,9 @@ export async function getDetalle(id: number): Promise<ActaDetalle | null> {
     const a = s[0];
     const legacy = a as unknown as Record<string, unknown>;
     const leg = (k: string): string => (legacy[k] == null ? "" : String(legacy[k]));
+    const selRaw = leg("conf_padrino_sel");
+    const confSel: "PADRINO" | "MADRINA" | "" =
+      selRaw === "PADRINO" || selRaw === "MADRINA" ? selRaw : "";
     const leer = async (pid: number | null): Promise<Persona> => {
       if (!pid) return { ...PERSONA_VACIA };
       const r = await db!.select<Persona[]>("SELECT * FROM personas WHERE id = $1", [pid]);
@@ -619,6 +651,7 @@ export async function getDetalle(id: number): Promise<ActaDetalle | null> {
       conf_baut_fecha: a.conf_baut_fecha ?? "",
       conf_baut_libro: a.conf_baut_libro ?? "",
       conf_baut_folio: a.conf_baut_folio ?? "",
+      conf_padrino_sel: confSel,
     };
   }
 
@@ -641,6 +674,9 @@ export async function getDetalle(id: number): Promise<ActaDetalle | null> {
   if (!a) return null;
   const legacyL = a as unknown as Record<string, unknown>;
   const legL = (k: string): string => (legacyL[k] == null ? "" : String(legacyL[k]));
+  const selRawL = legL("conf_padrino_sel");
+  const confSelL: "PADRINO" | "MADRINA" | "" =
+    selRawL === "PADRINO" || selRawL === "MADRINA" ? selRawL : "";
   const personas = lsRead<Persona>(LS_PERSONAS);
   const leer = (pid: number | null): Persona =>
     personas.find((p) => p.id === pid) ?? { ...PERSONA_VACIA };
@@ -672,6 +708,7 @@ export async function getDetalle(id: number): Promise<ActaDetalle | null> {
     conf_baut_fecha: a.conf_baut_fecha ?? "",
     conf_baut_libro: a.conf_baut_libro ?? "",
     conf_baut_folio: a.conf_baut_folio ?? "",
+    conf_padrino_sel: confSelL,
   };
 }
 
@@ -891,10 +928,11 @@ export async function crearActa(input: SacramentoInput): Promise<number> {
         domicilio_matrimonial, referencia_folios,
         esposo_baut_lugar, esposo_baut_fecha, esposo_baut_libro, esposo_baut_folio,
         esposa_baut_lugar, esposa_baut_fecha, esposa_baut_libro, esposa_baut_folio,
-        esposo_no_baut, esposa_no_baut,
-        conf_baut_lugar, conf_baut_fecha, conf_baut_libro, conf_baut_folio)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,
-               $16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29)`,
+         esposo_no_baut, esposa_no_baut,
+         conf_baut_lugar, conf_baut_fecha, conf_baut_libro, conf_baut_folio,
+         conf_padrino_sel)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,
+                $16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30)`,
       [
         personaId, esposoId, esposaId, input.tipo, input.fecha_sacramento,
         input.ministro_celebrante, input.libro, input.folio, input.parroquia_capilla,
@@ -908,6 +946,7 @@ export async function crearActa(input: SacramentoInput): Promise<number> {
         input.esposo_no_baut ? 1 : 0, input.esposa_no_baut ? 1 : 0,
         input.conf_baut_lugar, input.conf_baut_fecha,
         input.conf_baut_libro, input.conf_baut_folio,
+        input.conf_padrino_sel,
       ]
     );
     if (res.lastInsertId == null) throw new Error("No se pudo guardar el acta.");
@@ -958,6 +997,7 @@ export async function crearActa(input: SacramentoInput): Promise<number> {
     conf_baut_fecha: input.conf_baut_fecha,
     conf_baut_libro: input.conf_baut_libro,
     conf_baut_folio: input.conf_baut_folio,
+    conf_padrino_sel: input.conf_padrino_sel,
   });
   lsWrite(LS_PERSONAS, personas);
   lsWrite(LS_ACTAS, actas);
@@ -1000,8 +1040,9 @@ export async function actualizarActa(id: number, input: SacramentoInput): Promis
        esposo_baut_lugar=$12, esposo_baut_fecha=$13, esposo_baut_libro=$14, esposo_baut_folio=$15,
        esposa_baut_lugar=$16, esposa_baut_fecha=$17, esposa_baut_libro=$18, esposa_baut_folio=$19,
        esposo_no_baut=$20, esposa_no_baut=$21,
-       conf_baut_lugar=$22, conf_baut_fecha=$23, conf_baut_libro=$24, conf_baut_folio=$25
-       WHERE id=$26`,
+       conf_baut_lugar=$22, conf_baut_fecha=$23, conf_baut_libro=$24, conf_baut_folio=$25,
+       conf_padrino_sel=$26
+       WHERE id=$27`,
       [
         input.fecha_sacramento, input.ministro_celebrante, input.libro, input.folio,
         input.parroquia_capilla, input.padrino, input.madrina, input.notas_marginales,
@@ -1013,7 +1054,8 @@ export async function actualizarActa(id: number, input: SacramentoInput): Promis
         input.esposa_baut_libro, input.esposa_baut_folio,
         input.esposo_no_baut ? 1 : 0, input.esposa_no_baut ? 1 : 0,
         input.conf_baut_lugar, input.conf_baut_fecha,
-        input.conf_baut_libro, input.conf_baut_folio, id,
+        input.conf_baut_libro, input.conf_baut_folio,
+        input.conf_padrino_sel, id,
       ]
     );
     return;
@@ -1035,6 +1077,7 @@ export async function actualizarActa(id: number, input: SacramentoInput): Promis
     esposo_no_baut?: boolean | number | null; esposa_no_baut?: boolean | number | null;
     conf_baut_lugar: string; conf_baut_fecha: string;
     conf_baut_libro: string; conf_baut_folio: string;
+    conf_padrino_sel?: string | null;
   }>(LS_ACTAS);
   const upd = (pid: number | null | undefined, p: Persona) => {
     const i = personas.findIndex((x) => x.id === pid);
@@ -1073,6 +1116,7 @@ export async function actualizarActa(id: number, input: SacramentoInput): Promis
       conf_baut_fecha: input.conf_baut_fecha,
       conf_baut_libro: input.conf_baut_libro,
       conf_baut_folio: input.conf_baut_folio,
+      conf_padrino_sel: input.conf_padrino_sel,
     };
   }
   lsWrite(LS_PERSONAS, personas);
@@ -1114,6 +1158,7 @@ export async function contarActas(): Promise<Record<TipoSacramento, number>> {
     COMUNION: 0,
     CONFIRMACION: 0,
     MATRIMONIO: 0,
+    CONFESION: 0,
   };
   await initDb();
   if (mode === "sqlite" && db) {

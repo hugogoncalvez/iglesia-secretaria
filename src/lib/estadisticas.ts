@@ -15,6 +15,7 @@ export const CONTEO_VACIO: ConteoPorTipo = {
   COMUNION: 0,
   CONFIRMACION: 0,
   MATRIMONIO: 0,
+  CONFESION: 0,
 };
 
 export interface MesFila extends ConteoPorTipo {
@@ -221,7 +222,7 @@ function armarInforme(
     desde,
     hasta,
     porTipo,
-    total: porTipo.BAUTISMO + porTipo.COMUNION + porTipo.CONFIRMACION + porTipo.MATRIMONIO,
+    total: porTipo.BAUTISMO + porTipo.COMUNION + porTipo.CONFIRMACION + porTipo.MATRIMONIO + porTipo.CONFESION,
     porMes,
     edades: EDADES_BUCKETS.map((b) => edades.get(b)!),
     matrimonios,
@@ -320,7 +321,7 @@ export async function informeEstadistico(desde: string, hasta: string): Promise<
       desde,
       hasta,
       porTipo,
-      total: porTipo.BAUTISMO + porTipo.COMUNION + porTipo.CONFIRMACION + porTipo.MATRIMONIO,
+      total: porTipo.BAUTISMO + porTipo.COMUNION + porTipo.CONFIRMACION + porTipo.MATRIMONIO + porTipo.CONFESION,
       porMes: [...meses.values()],
       edades: EDADES_BUCKETS.map((b) => edades.get(b)!),
       matrimonios,
@@ -342,7 +343,8 @@ export async function usoLibros(): Promise<LibroUso[]> {
   if (getMode() === "sqlite") {
     return sqlSelect<{ tipo: TipoSacramento; libro: string; n: number }[]>(
       `SELECT tipo, libro, COUNT(*) AS n FROM sacramentos
-       GROUP BY tipo, libro ORDER BY tipo, LENGTH(libro), libro`
+        WHERE tipo <> 'CONFESION'
+        GROUP BY tipo, libro ORDER BY tipo, LENGTH(libro), libro`
     ).then((rows) =>
       rows.map((r) => ({ tipo: r.tipo, libro: r.libro || "—", cantidad: r.n }))
     );
@@ -350,6 +352,7 @@ export async function usoLibros(): Promise<LibroUso[]> {
   const mapa = new Map<string, LibroUso>();
   for (const a of lsRead<ActaPlana>(LS_KEYS.actas)) {
     if (!TIPOS_SACRAMENTO.includes(a.tipo)) continue;
+    if (a.tipo === "CONFESION") continue; // Primera Confesión no lleva libro
     const libro = a.libro || "—";
     const k = `${a.tipo}||${libro}`;
     const e = mapa.get(k);

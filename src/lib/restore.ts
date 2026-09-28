@@ -211,6 +211,7 @@ const COLS_ACTA = [
   "conf_baut_fecha",
   "conf_baut_libro",
   "conf_baut_folio",
+  "conf_padrino_sel",
 ];
 
 /**

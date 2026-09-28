@@ -1,14 +1,14 @@
 // Documentos PDF (informe interno + planilla del Obispado).
 // Este módulo se importa de forma diferida (await import(...)) desde las pantallas,
 // para no cargar @react-pdf/renderer al abrir la app y acelerar el arranque.
-import { pdf, Document, Page, Text, View, StyleSheet, Image } from "@react-pdf/renderer";
-import { TIPOS_SACRAMENTO, type ActaDetalle, type ParishConfig } from "../lib/db";
+import { pdf, Document, Page, Text, View, StyleSheet, Image, Font } from "@react-pdf/renderer";
+import { ABREV_TIPO, ETIQUETA_TIPO, TIPOS_SACRAMENTO, type ActaDetalle, type ParishConfig } from "../lib/db";
 import type {
   DatosObispado,
   InformeEstadistico,
   LibroUso,
 } from "../lib/estadisticas";
-import { fechaLarga } from "./Certificado";
+import { fechaLarga, fechaLargaFormal, padrinoEnCertificado } from "./Certificado";
 
 /* ---------------- Informe interno ---------------- */
 
@@ -44,7 +44,7 @@ function InformeDoc({ inf, libros, capacidad, cfg }: { inf: InformeEstadistico; 
           </View>
           {TIPOS_SACRAMENTO.map((t) => (
             <View style={rep.fila} key={t}>
-              <Text style={rep.celda}>{t}</Text>
+              <Text style={rep.celda}>{ETIQUETA_TIPO[t]}</Text>
               <Text style={rep.celdaDer}>{inf.porTipo[t]}</Text>
             </View>
           ))}
@@ -59,7 +59,7 @@ function InformeDoc({ inf, libros, capacidad, cfg }: { inf: InformeEstadistico; 
           <View style={rep.fila}>
             <Text style={rep.celdaHead}>Mes</Text>
             {TIPOS_SACRAMENTO.map((t) => (
-              <Text key={t} style={[rep.celdaHead, { textAlign: "right" }]}>{t.slice(0, 4)}.</Text>
+              <Text key={t} style={[rep.celdaHead, { textAlign: "right" }]}>{ABREV_TIPO[t]}</Text>
             ))}
             <Text style={[rep.celdaHead, { textAlign: "right" }]}>Total</Text>
           </View>
@@ -219,6 +219,7 @@ export async function generarPlanillaBlob(
 const TITULO_CERT: Record<string, string> = {
   COMUNION: "Constancia de Primera Comunión",
   CONFIRMACION: "Constancia de Confirmación",
+  CONFESION: "Certificado de Mi Primera Confesión",
 };
 
 const cert = StyleSheet.create({
@@ -281,5 +282,193 @@ export async function generarCertificadoBlob(
   cfg: ParishConfig,
   sello: string | null
 ): Promise<Blob> {
+  if (a.tipo === "CONFESION") return pdf(<ConfesionDoc a={a} cfg={cfg} />).toBlob();
+  if (a.tipo === "COMUNION") return pdf(<ComunionDoc a={a} cfg={cfg} />).toBlob();
+  if (a.tipo === "CONFIRMACION") return pdf(<ConfirmacionDoc a={a} cfg={cfg} />).toBlob();
   return pdf(<CertificadoDoc a={a} cfg={cfg} sello={sello} />).toBlob();
+}
+
+/* ---------------- Primera Confesión (réplica ornamental del modelo) ---------------- */
+
+/**
+ * El fondo es la imagen extraída del certificado que se entrega actualmente
+ * (public/primera-confesion-fondo.jpg, con el nombre del párroco anterior
+ * ya limpiado) y los datos se sobreimprimen en los renglones.
+ * Página a medida con la proporción del modelo para que todo caiga en su lugar.
+ */
+const FONDO_CONFESION = `${import.meta.env.BASE_URL}primera-confesion-fondo.jpg`;
+const CONFESION_ANCHO = 842;
+const CONFESION_ALTO = 596.75;
+
+/** Manuscrita estilo Edwardian (clon libre del modelo): firma de la Primera Confesión. */
+Font.register({
+  family: "Great Vibes",
+  src: `${import.meta.env.BASE_URL}fonts/GreatVibes-Regular.ttf`,
+});
+
+const confesion = StyleSheet.create({
+  page: { padding: 0, backgroundColor: "#ffffff" },
+  fondo: { position: "absolute", top: 0, left: 0, width: CONFESION_ANCHO, height: CONFESION_ALTO },
+  nombre: {
+    position: "absolute", top: 215, left: "21%", width: "59%",
+    textAlign: "center", fontFamily: "Helvetica", fontStyle: "italic", fontWeight: "bold",
+    color: "#1a1a1a",
+  },
+  renglon: {
+    position: "absolute", left: "30.5%", width: "49.5%",
+    textAlign: "center", fontFamily: "Helvetica", fontSize: 19, color: "#1a1a1a",
+  },
+  // Letra manuscrita del modelo (Great Vibes solo trae Regular: sin itálica
+  // ni negrita, la forma ya es caligráfica por sí misma).
+  firma: {
+    position: "absolute", top: 442, left: 67,
+    fontFamily: "Great Vibes", fontSize: 23, color: "#111111",
+  },
+  /** Rayita guía dorada bajo la firma (como el modelo). */
+  lineaFirma: {
+    position: "absolute", top: 466, left: 67, width: 211, height: 1.5,
+    backgroundColor: "#aea35a",
+  },
+  cargo: {
+    position: "absolute", top: 469, left: "8%", width: "25%",
+    textAlign: "center", fontFamily: "Helvetica", fontSize: 10, color: "#333333",
+  },
+});
+
+function ConfesionDoc({ a, cfg }: { a: ActaDetalle; cfg: ParishConfig }) {
+  const nombre = a.persona.apellido_nombres || "";
+  const n = nombre.trim().length;
+  const fsNombre = n > 34 ? 21 : n > 26 ? 24.5 : 27.5;
+  return (
+    <Document>
+      <Page size={[CONFESION_ANCHO, CONFESION_ALTO]} style={confesion.page}>
+        <Image src={FONDO_CONFESION} style={confesion.fondo} />
+        <Text style={[confesion.nombre, { fontSize: fsNombre }]}>{nombre}</Text>
+        <Text style={[confesion.renglon, { top: 304 }]}>{cfg.parroquia || ""}</Text>
+        <Text style={[confesion.renglon, { top: 352 }]}>{fechaLarga(a.fecha_sacramento) === "—" ? "" : fechaLarga(a.fecha_sacramento)}</Text>
+        {cfg.parroco ? <Text style={confesion.firma}>Pbro. {cfg.parroco}</Text> : null}
+        <View style={confesion.lineaFirma} />
+        {cfg.parroquia ? (
+          <Text style={confesion.cargo}>Párroco {cfg.parroquia.replace(/^parroquia\s+/i, "")}</Text>
+        ) : null}
+      </Page>
+    </Document>
+  );
+}
+
+/* ---------------- Primera Comunión (réplica ornamental del modelo) ---------------- */
+
+const FONDO_COMUNION = `${import.meta.env.BASE_URL}primera-comunion-fondo.jpg`;
+const COMUNION_ANCHO = 842;
+const COMUNION_ALTO = 598;
+
+const comunion = StyleSheet.create({
+  page: { padding: 0, backgroundColor: "#ffffff" },
+  fondo: { position: "absolute", top: 0, left: 0, width: COMUNION_ANCHO, height: COMUNION_ALTO },
+  nombre: {
+    position: "absolute", top: 159, left: "32%", width: "56%",
+    textAlign: "center", fontFamily: "Times-BoldItalic", color: "#1a1a1a",
+  },
+  renglon: {
+    position: "absolute", left: "39%", width: "35.5%",
+    textAlign: "center", fontFamily: "Times-Roman", fontSize: 19, color: "#1a1a1a",
+  },
+  firma: {
+    position: "absolute", top: 502, left: 562,
+    fontFamily: "Great Vibes", fontSize: 23, color: "#111111",
+  },
+  /** Rayita guía dorada bajo la firma (como el modelo). */
+  lineaFirma: {
+    position: "absolute", top: 525, left: 556, width: 189, height: 1.5,
+    backgroundColor: "#aea35a",
+  },
+  cargo: {
+    position: "absolute", top: 530, left: "60%", width: "34%",
+    textAlign: "center", fontFamily: "Helvetica", fontSize: 10, color: "#333333",
+  },
+});
+
+function ComunionDoc({ a, cfg }: { a: ActaDetalle; cfg: ParishConfig }) {
+  const nombre = a.persona.apellido_nombres || "";
+  const n = nombre.trim().length;
+  const fsNombre = n > 34 ? 21 : n > 26 ? 24.5 : 27.5;
+  return (
+    <Document>
+      <Page size={[COMUNION_ANCHO, COMUNION_ALTO]} style={comunion.page}>
+        <Image src={FONDO_COMUNION} style={comunion.fondo} />
+        <Text style={[comunion.nombre, { fontSize: fsNombre }]}>{nombre}</Text>
+        <Text style={[comunion.renglon, { top: 259 }]}>{cfg.parroquia || ""}</Text>
+        <Text style={[comunion.renglon, { top: 286 }]}>{fechaLarga(a.fecha_sacramento) === "—" ? "" : fechaLarga(a.fecha_sacramento)}</Text>
+        {cfg.parroco ? <Text style={comunion.firma}>Pbro. {cfg.parroco}</Text> : null}
+        <View style={comunion.lineaFirma} />
+        {cfg.parroquia ? (
+          <Text style={comunion.cargo}>Párroco {cfg.parroquia.replace(/^parroquia\s+/i, "")}</Text>
+        ) : null}
+      </Page>
+    </Document>
+  );
+}
+
+/* ---------------- Confirmación (réplica ornamental del modelo) ---------------- */
+
+const FONDO_CONFIRMACION = `${import.meta.env.BASE_URL}confirmacion-fondo.jpg`;
+// Página a medida con números exactos en binario (842 × 595.5): con el A4
+// flotante (841.89 × 595.28) el fondo quedaba una fracción de punto más alto
+// que la hoja y el texto se escapaba a una 2ª página.
+const CONFIRMACION_ANCHO = 842;
+const CONFIRMACION_ALTO = 595.5;
+
+const confirmacion = StyleSheet.create({
+  page: { padding: 0, backgroundColor: "#ffffff" },
+  fondo: { position: "absolute", top: 0, left: 0, width: CONFIRMACION_ANCHO, height: CONFIRMACION_ALTO },
+  nombre: {
+    position: "absolute", top: 156, left: "27%", width: "57%",
+    textAlign: "center", fontFamily: "Times-BoldItalic", color: "#1a1a1a",
+  },
+  padrino: {
+    position: "absolute", top: 243, left: "40.5%", width: "44%",
+    textAlign: "center", fontFamily: "Times-Roman", color: "#1a1a1a",
+  },
+  fecha: {
+    position: "absolute", top: 301, left: "30%", width: "45%",
+    textAlign: "center", fontFamily: "Times-Roman", fontSize: 22, color: "#1a1a1a",
+  },
+  firma: {
+    position: "absolute", top: 534, left: 543,
+    fontFamily: "Great Vibes", fontSize: 23, color: "#111111",
+  },
+  /** Rayita guía dorada bajo la firma (como el modelo). */
+  lineaFirma: {
+    position: "absolute", top: 556, left: 539, width: 215, height: 1.5,
+    backgroundColor: "#aea35a",
+  },
+  cargo: {
+    position: "absolute", top: 560, left: "58.5%", width: "35%",
+    textAlign: "center", fontFamily: "Helvetica", fontSize: 10, color: "#333333",
+  },
+});
+
+function ConfirmacionDoc({ a, cfg }: { a: ActaDetalle; cfg: ParishConfig }) {
+  const nombre = a.persona.apellido_nombres || "";
+  const n = nombre.trim().length;
+  const fsNombre = n > 34 ? 21 : n > 26 ? 24.5 : 27.5;
+  const padrino = padrinoEnCertificado(a);
+  const np = padrino.trim().length;
+  const fsPadrino = np > 40 ? 15.5 : np > 30 ? 17 : 19;
+  const fecha = fechaLargaFormal(a.fecha_sacramento);
+  return (
+    <Document>
+      <Page size={[CONFIRMACION_ANCHO, CONFIRMACION_ALTO]} style={confirmacion.page}>
+        <Image src={FONDO_CONFIRMACION} style={confirmacion.fondo} />
+        <Text style={[confirmacion.nombre, { fontSize: fsNombre }]}>{nombre}</Text>
+        <Text style={[confirmacion.padrino, { fontSize: fsPadrino }]}>{padrino}</Text>
+        <Text style={confirmacion.fecha}>{fecha === "—" ? "" : fecha}</Text>
+        {cfg.parroco ? <Text style={confirmacion.firma}>Pbro. {cfg.parroco}</Text> : null}
+        <View style={confirmacion.lineaFirma} />
+        {cfg.parroquia ? (
+          <Text style={confirmacion.cargo}>Párroco {cfg.parroquia.replace(/^parroquia\s+/i, "")}</Text>
+        ) : null}
+      </Page>
+    </Document>
+  );
 }
