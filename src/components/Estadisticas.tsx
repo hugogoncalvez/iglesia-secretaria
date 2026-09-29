@@ -48,44 +48,6 @@ function mesLargo(ym: string): string {
 
 /* ---------------- Planilla Obispado: datos manuales 5–8 (ver lib/estadisticas) ---------------- */
 
-/* ---------------- CSV (abre en Excel) ---------------- */
-
-function aCSV(inf: InformeEstadistico, libros: LibroUso[], datos: DatosObispado, anio: string): string {
-  const L: string[] = [];
-  const cel = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
-  L.push(`Informe estadístico de sacramentos;${inf.desde || ""} al ${inf.hasta || ""}`);
-  L.push("");
-  L.push("Sacramento;Cantidad");
-  for (const t of TIPOS_SACRAMENTO) L.push(`${t};${inf.porTipo[t]}`);
-  L.push(`TOTAL;${inf.total}`);
-  L.push("");
-  L.push(`Mes;${TIPOS_SACRAMENTO.join(";")};Total`);
-  for (const m of inf.porMes) L.push(`${m.mes};${TIPOS_SACRAMENTO.map((t) => m[t]).join(";")};${m.total}`);
-  L.push("");
-  L.push("Rango de edad;Bautismos;Comuniones;Confirmaciones");
-  for (const e of inf.edades) L.push(`${cel(e.bucket)};${e.BAUTISMO};${e.COMUNION};${e.CONFIRMACION}`);
-  L.push("");
-  L.push(`Libro (acumulado);Tipo;N°;Folios usados;Hojas;Actas;Estado`);
-  for (const l of libros) L.push(`${cel(`Libro ${l.libro}`)};${l.tipo};${cel(l.libro)};${l.folios};${l.hojas};${l.cantidad};${l.estado}`);
-  L.push("");
-  L.push(`Planilla Obispado año ${anio};Cantidad`);
-  const baut = (b: string) => inf.edades.find((e) => e.bucket === b)?.BAUTISMO ?? 0;
-  L.push(`1a Bautismos hasta 1 año;${baut("Menor de 1 año")}`);
-  L.push(`1b Bautismos de 1 a 7 años;${baut("1 a 7 años")}`);
-  L.push(`1c Bautismos mayores de 7 años;${baut("8 a 17 años") + baut("18 años o más")}`);
-  L.push(`2a Matrimonios entre católicos;${inf.matrimonios.entreCatolicos}`);
-  L.push(`2b Matrimonios católico + no católico;${inf.matrimonios.mixtos}`);
-  L.push(`2 Matrimonios sin dato de bautismo;${inf.matrimonios.sinDato}`);
-  L.push(`3 Confirmados;${inf.porTipo.CONFIRMACION}`);
-  L.push(`4 Primeras comuniones;${inf.porTipo.COMUNION}`);
-  L.push(`5 Catequistas;${datos.catequistas || 0}`);
-  L.push(`6 Misioneros laicos;${datos.misioneros || 0}`);
-  L.push(`7 Hogar ancianos mujeres;${datos.hogarMujeres || 0}`);
-  L.push(`7 Hogar ancianos varones;${datos.hogarVarones || 0}`);
-  L.push(`8 Capillas;${datos.capillas || 0}`);
-  return "﻿" + L.join("\r\n");
-}
-
 /* ---------------- Pantalla ---------------- */
 
 export default function Estadisticas() {
@@ -159,16 +121,6 @@ export default function Estadisticas() {
     const h = `${a}-12-31`;
     setRango({ desde: d, hasta: h });
     recargar(d, h);
-  }
-
-  function bajarCSV() {
-    if (!inf) return;
-    const blob = new Blob([aCSV(inf, libros, datos, anio)], { type: "text/csv;charset=utf-8" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `estadisticas-${rango.desde || "todo"}_${rango.hasta || "todo"}.csv`;
-    a.click();
-    URL.revokeObjectURL(a.href);
   }
 
   /**
@@ -248,11 +200,6 @@ export default function Estadisticas() {
           >
             {generando === "planilla" ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}{generando === "planilla" ? "Generando…" : "Planilla Obispado"}
           </button>
-          {false && (
-            <button type="button" onClick={bajarCSV} disabled={!inf} className="border border-slate-300 dark:border-slate-500 rounded-lg px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors inline-flex items-center gap-1.5 disabled:opacity-40">
-              <Download size={14} />CSV
-            </button>
-          )}
         </div>
       </form>
 
