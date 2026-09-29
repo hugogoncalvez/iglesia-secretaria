@@ -120,8 +120,6 @@ export function PrimeraConfesionPrintable({ a, cfg }: { a: ActaDetalle; cfg: Par
   // "En la ...": el lugar del acta (autocompleta con la parroquia de Configuración).
   const lugar = a.parroquia_capilla || cfg.parroquia || "";
   const fecha = fechaLarga(a.fecha_sacramento) === "—" ? "" : fechaLarga(a.fecha_sacramento);
-  const firma = cfg.parroco ? `Pbro. ${cfg.parroco}` : "";
-  const cargo = `Párroco ${cfg.parroquia.replace(/^parroquia\s+/i, "")}`;
   // Precarga la manuscrita para que ya esté lista al dar Imprimir.
   useEffect(() => {
     document.fonts?.load('20px "Great Vibes"').catch(() => undefined);
@@ -154,13 +152,6 @@ export function PrimeraConfesionPrintable({ a, cfg }: { a: ActaDetalle; cfg: Par
           </text>
           <text x="55.2" y="43.55" textAnchor="middle" fontSize="2.2" fontFamily="Georgia,'Times New Roman',serif" fill="#1a1a1a">
             {fecha}
-          </text>
-          <text x="8" y="54.9" textAnchor="start" fontSize="2.7" fontStyle="italic" fontFamily={LETRA_FIRMA} fill="#111">
-            {firma}
-          </text>
-          <line x1="8" y1="55.33" x2="33" y2="55.33" stroke="#aea35a" strokeWidth="0.18" />
-          <text x="20.5" y="56.6" textAnchor="middle" fontSize="1.25" fontFamily="Georgia,'Times New Roman',serif" fill="#333">
-            {cfg.parroquia ? cargo : ""}
           </text>
         </svg>
       </div>

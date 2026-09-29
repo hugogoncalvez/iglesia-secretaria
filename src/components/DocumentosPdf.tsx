@@ -347,11 +347,6 @@ function ConfesionDoc({ a, cfg }: { a: ActaDetalle; cfg: ParishConfig }) {
         <Text style={[confesion.nombre, { fontSize: fsNombre }]}>{nombre}</Text>
         <Text style={[confesion.renglon, { top: 304 }]}>{a.parroquia_capilla || cfg.parroquia || ""}</Text>
         <Text style={[confesion.renglon, { top: 352 }]}>{fechaLarga(a.fecha_sacramento) === "—" ? "" : fechaLarga(a.fecha_sacramento)}</Text>
-        {cfg.parroco ? <Text style={confesion.firma}>Pbro. {cfg.parroco}</Text> : null}
-        <View style={confesion.lineaFirma} />
-        {cfg.parroquia ? (
-          <Text style={confesion.cargo}>Párroco {(a.parroquia_capilla || cfg.parroquia).replace(/^parroquia\s+/i, "")}</Text>
-        ) : null}
       </Page>
     </Document>
   );
