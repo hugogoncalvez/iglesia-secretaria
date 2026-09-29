@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
-import { getConfig, infoBase, saveConfig, type ParishConfig } from "../lib/db";
+import { ETIQUETA_TIPO, TIPOS_CON_LIBRO, crearLibro, eliminarLibro, getConfig, infoBase, listLibros, saveConfig, setEstadoLibro, type LibroFisico, type ParishConfig, type TipoSacramento } from "../lib/db";
 import { hacerBackup } from "../lib/backup";
 import { logAccion } from "../lib/auditoria";
 import { mensajeError } from "../lib/errores";
@@ -135,6 +135,8 @@ export default function Configuracion({ actual }: { actual: string }) {
         <button className="bg-parroquia-900 hover:bg-parroquia-700 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors">Guardar</button>
       </form>
 
+      <LibrosSection />
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
       <div className="bg-white dark:bg-noche-700 dark:text-slate-100 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 space-y-3">
         <h3 className="font-display font-bold">Resguardo de datos</h3>
@@ -205,6 +207,157 @@ export default function Configuracion({ actual }: { actual: string }) {
         <p className="text-xs text-slate-500 dark:text-slate-300">Desarrollador: Hugo Goncalvez</p>
         <p className="text-xs text-slate-500 dark:text-slate-300">hugogoncalvez@gmail.com</p>
       </div>
+    </div>
+  );
+}
+
+/** Alta y cierre de libros físicos. Sin libro abierto del tipo, no se guardan actas. */
+function LibrosSection() {
+  const [libros, setLibros] = useState<LibroFisico[]>([]);
+  const [tipo, setTipo] = useState<TipoSacramento>("BAUTISMO");
+  const [numero, setNumero] = useState("");
+  const [hojas, setHojas] = useState("");
+  const [err, setErr] = useState("");
+  const [agregando, setAgregando] = useState(false);
+  const [operando, setOperando] = useState<number | null>(null);
+
+  async function recargar() {
+    try {
+      setLibros(await listLibros());
+    } catch (e) {
+      setErr(mensajeError(e, "No se pudieron leer los libros."));
+    }
+  }
+
+  useEffect(() => {
+    recargar();
+  }, []);
+
+  async function agregar(e: React.FormEvent) {
+    e.preventDefault();
+    if (agregando) return;
+    setErr("");
+    setAgregando(true);
+    try {
+      await crearLibro(tipo, numero, Number(hojas));
+      setNumero("");
+      setHojas("");
+      await recargar();
+    } catch (e) {
+      setErr(mensajeError(e));
+    } finally {
+      setAgregando(false);
+    }
+  }
+
+  async function cambiarEstado(l: LibroFisico) {
+    setErr("");
+    setOperando(l.id);
+    try {
+      await setEstadoLibro(l.id, l.estado === "abierto" ? "cerrado" : "abierto");
+      await recargar();
+    } catch (e) {
+      setErr(mensajeError(e));
+    } finally {
+      setOperando(null);
+    }
+  }
+
+  async function borrar(l: LibroFisico) {
+    if (!window.confirm(`¿Eliminar el libro N° ${l.numero} de ${ETIQUETA_TIPO[l.tipo]}? Solo se puede si no tiene actas.`)) return;
+    setErr("");
+    setOperando(l.id);
+    try {
+      await eliminarLibro(l.id);
+      await recargar();
+    } catch (e) {
+      setErr(mensajeError(e));
+    } finally {
+      setOperando(null);
+    }
+  }
+
+  return (
+    <div className="bg-white dark:bg-noche-700 dark:text-slate-100 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 space-y-3">
+      <div>
+        <h3 className="font-display font-bold">Libros de actas</h3>
+        <p className="text-xs text-slate-500 dark:text-slate-300">
+          Sin libro registrado y abierto del tipo, el sistema no deja guardar actas (Primera Confesión no lleva libro).
+        </p>
+      </div>
+      <form onSubmit={agregar} className="grid grid-cols-2 md:grid-cols-4 gap-2 items-end">
+        <div>
+          <label className="text-xs font-medium">Tipo</label>
+          <select className={inputCls} value={tipo} onChange={(e) => setTipo(e.target.value as TipoSacramento)}>
+            {TIPOS_CON_LIBRO.map((t) => <option key={t} value={t}>{ETIQUETA_TIPO[t]}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="text-xs font-medium">N° de libro</label>
+          <input className={inputCls} value={numero} onChange={(e) => setNumero(e.target.value)} placeholder="Ej: 3" />
+        </div>
+        <div>
+          <label className="text-xs font-medium">Hojas</label>
+          <input type="number" min={1} className={inputCls} value={hojas} onChange={(e) => setHojas(e.target.value)} placeholder="Ej: 500" />
+        </div>
+        <div>
+          <button
+            disabled={agregando}
+            className="w-full bg-parroquia-900 hover:bg-parroquia-700 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-1.5"
+          >
+            {agregando && <Loader2 size={14} className="animate-spin" />}
+            {agregando ? "Agregando…" : "Agregar"}
+          </button>
+        </div>
+      </form>
+      {err && <p className="text-sm text-red-700 dark:text-red-200 bg-red-50 dark:bg-red-900/50 border border-red-200 dark:border-red-700 rounded p-2">{err}</p>}
+      {libros.length === 0 ? (
+        <p className="text-sm text-slate-500 dark:text-slate-300">Todavía no hay libros cargados.</p>
+      ) : (
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-xs uppercase tracking-wide text-parroquia-900 dark:text-slate-300">
+              <th className="px-2 py-2 text-left font-semibold">Tipo</th>
+              <th className="px-2 py-2 text-left font-semibold">N°</th>
+              <th className="px-2 py-2 text-right font-semibold">Hojas</th>
+              <th className="px-2 py-2 text-left font-semibold">Estado</th>
+              <th className="px-2 py-2 text-right font-semibold">Acciones</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-200 dark:divide-slate-600">
+            {libros.map((l) => (
+              <tr key={l.id} className="hover:bg-slate-100 dark:hover:bg-slate-600/50">
+                <td className="px-2 py-2">{ETIQUETA_TIPO[l.tipo]}</td>
+                <td className="px-2 py-2 tabular-nums">{l.numero}</td>
+                <td className="px-2 py-2 text-right tabular-nums">{l.hojas}</td>
+                <td className="px-2 py-2">
+                  <span className={`text-xs font-medium rounded-full px-2 py-0.5 ${l.estado === "abierto" ? "bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200" : "bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-300"}`}>
+                    {l.estado === "abierto" ? "Abierto" : "Cerrado"}
+                  </span>
+                </td>
+                <td className="px-2 py-2">
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={() => void cambiarEstado(l)}
+                      disabled={operando !== null}
+                      className="text-xs underline disabled:opacity-40"
+                    >
+                      {l.estado === "abierto" ? "Cerrar" : "Reabrir"}
+                    </button>
+                    <button
+                      onClick={() => void borrar(l)}
+                      disabled={operando !== null}
+                      className="text-xs underline text-red-700 dark:text-red-300 disabled:opacity-40"
+                    >
+                      Eliminar
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }

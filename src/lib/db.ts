@@ -191,6 +191,7 @@ const LS_PERSONAS = "iglesia_personas";
 const LS_ACTAS = "iglesia_sacramentos";
 const LS_IDS = "iglesia_ids";
 const LS_CONFIG = "iglesia_config";
+const LS_LIBROS = "iglesia_libros";
 const LS_USUARIOS_WEB = "iglesia_usuarios"; // misma clave que auth.ts (sin importar: evita ciclo)
 const LS_AUDITORIA_WEB = "iglesia_auditoria"; // misma clave que auditoria.ts
 const LS_MIGRADO = "iglesia_migrado_sqlite";
@@ -201,6 +202,7 @@ export const LS_KEYS = {
   actas: LS_ACTAS,
   ids: LS_IDS,
   config: LS_CONFIG,
+  libros: LS_LIBROS,
 };
 
 export function isTauri(): boolean {
@@ -355,6 +357,15 @@ export async function initDb(): Promise<Mode> {
       );
     `);
     await db.execute(`
+      CREATE TABLE IF NOT EXISTS libros (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tipo TEXT NOT NULL,
+        numero TEXT NOT NULL DEFAULT '',
+        hojas INTEGER NOT NULL DEFAULT 0,
+        estado TEXT NOT NULL DEFAULT 'abierto'
+      );
+    `);
+    await db.execute(`
       CREATE TABLE IF NOT EXISTS auditoria (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         fecha_hora TEXT NOT NULL DEFAULT '',
@@ -436,12 +447,13 @@ const COLS_ACTA_MIG = [
  * migración parcial de versiones anteriores.
  */
 async function migrarLocalASqlite(): Promise<void> {
-  if (!db || localStorage.getItem(LS_MIGRADO) === "2") return;
+  if (!db || localStorage.getItem(LS_MIGRADO) === "3") return;
   const personas = lsRead<Record<string, unknown>>(LS_PERSONAS);
   const actas = lsRead<Record<string, unknown>>(LS_ACTAS);
   const usuarios = lsRead<Record<string, unknown>>(LS_USUARIOS_WEB);
-  if (personas.length === 0 && actas.length === 0 && usuarios.length === 0) {
-    localStorage.setItem(LS_MIGRADO, "2");
+  const libros = lsRead<Record<string, unknown>>(LS_LIBROS);
+  if (personas.length === 0 && actas.length === 0 && usuarios.length === 0 && libros.length === 0) {
+    localStorage.setItem(LS_MIGRADO, "3");
     return;
   }
   const idsPersonas = new Set<number>();
@@ -494,7 +506,13 @@ async function migrarLocalASqlite(): Promise<void> {
   } catch {
     /* config opcional */
   }
-  localStorage.setItem(LS_MIGRADO, "2");
+  for (const r of libros) {
+    await db.execute(
+      "INSERT OR REPLACE INTO libros (id, tipo, numero, hojas, estado) VALUES ($1,$2,$3,$4,$5)",
+      [numV(r.id), strV(r.tipo), strV(r.numero), Number(r.hojas) || 0, strV(r.estado) || "abierto"]
+    );
+  }
+  localStorage.setItem(LS_MIGRADO, "3");
 }
 
 export function getMode(): Mode {
@@ -902,6 +920,7 @@ function personaVals(p: Persona): unknown[] {
 
 export async function crearActa(input: SacramentoInput): Promise<number> {
   await initDb();
+  await exigirLibro(input.tipo, input.libro, true);
   if (mode === "sqlite" && db) {
     const insertPersona = async (p: Persona): Promise<number> => {
       const r = await db!.execute(
@@ -1009,6 +1028,8 @@ export async function actualizarActa(id: number, input: SacramentoInput): Promis
   const det = await getDetalle(id);
   if (!det) throw new Error("Acta no encontrada.");
   if (det.tipo !== input.tipo) throw new Error("No se puede cambiar el tipo de sacramento. Borrá el acta y creala de nuevo.");
+  // Al editar se exige libro registrado (abierto o cerrado) para no trabar correcciones.
+  await exigirLibro(input.tipo, input.libro, false);
 
   if (mode === "sqlite" && db) {
     const updPersona = async (pid: number | null, p: Persona) => {
@@ -1192,6 +1213,150 @@ export async function sqlExecute(sql: string, params?: unknown[]): Promise<void>
   throw new Error("no-sqlite");
 }
 
+// --- Libros de actas físicos (sección Configuración → Libros de actas) ---
+
+/** Tipos con libro físico. Primera Confesión no lleva libro. */
+export const TIPOS_CON_LIBRO: TipoSacramento[] = ["BAUTISMO", "COMUNION", "CONFIRMACION", "MATRIMONIO"];
+
+export type EstadoLibro = "abierto" | "cerrado";
+
+export interface LibroFisico {
+  id: number;
+  tipo: TipoSacramento;
+  numero: string;
+  hojas: number;
+  estado: EstadoLibro;
+}
+
+/** "03" y "3" son el mismo libro: se comparan sin ceros a la izquierda. */
+const normNumero = (n: string) => n.trim().replace(/^0+(?=\d)/, "");
+
+function filaALibro(r: Record<string, unknown>): LibroFisico {
+  const tipo = String(r.tipo);
+  return {
+    id: Number(r.id) || 0,
+    tipo: (TIPOS_CON_LIBRO as string[]).includes(tipo) ? (tipo as TipoSacramento) : "BAUTISMO",
+    numero: String(r.numero ?? ""),
+    hojas: Number(r.hojas) || 0,
+    estado: r.estado === "cerrado" ? "cerrado" : "abierto",
+  };
+}
+
+export async function listLibros(): Promise<LibroFisico[]> {
+  await initDb();
+  if (mode === "sqlite" && db) {
+    const rows = await db.select<Record<string, unknown>[]>(
+      "SELECT id, tipo, numero, hojas, estado FROM libros ORDER BY tipo, LENGTH(numero), numero"
+    );
+    return rows.map(filaALibro);
+  }
+  return lsRead<Record<string, unknown>>(LS_LIBROS)
+    .map(filaALibro)
+    .sort((a, b) => (a.tipo === b.tipo ? a.numero.localeCompare(b.numero, undefined, { numeric: true }) : a.tipo.localeCompare(b.tipo)));
+}
+
+export async function crearLibro(tipo: TipoSacramento, numero: string, hojas: number): Promise<LibroFisico> {
+  if (!TIPOS_CON_LIBRO.includes(tipo)) throw new Error("Tipo de libro inválido.");
+  const num = (numero ?? "").trim();
+  if (!num) throw new Error("Cargá el N° de libro.");
+  if (!Number.isInteger(hojas) || hojas < 1) throw new Error("La cantidad de hojas debe ser mayor a 0.");
+  const norm = normNumero(num);
+  const existentes = await listLibros();
+  if (existentes.some((l) => l.tipo === tipo && normNumero(l.numero) === norm)) {
+    throw new Error(`Ya existe el libro N° ${num} de ${ETIQUETA_TIPO[tipo]}.`);
+  }
+  await initDb();
+  if (mode === "sqlite" && db) {
+    const r = await db.execute("INSERT INTO libros (tipo, numero, hojas, estado) VALUES ($1,$2,$3,'abierto')", [tipo, num, hojas]);
+    return { id: r.lastInsertId ?? 0, tipo, numero: num, hojas, estado: "abierto" };
+  }
+  const id = lsNextId();
+  const filas = lsRead<Record<string, unknown>>(LS_LIBROS);
+  filas.push({ id, tipo, numero: num, hojas, estado: "abierto" });
+  lsWrite(LS_LIBROS, filas);
+  return { id, tipo, numero: num, hojas, estado: "abierto" };
+}
+
+export async function setEstadoLibro(id: number, estado: EstadoLibro): Promise<void> {
+  await initDb();
+  if (mode === "sqlite" && db) {
+    await db.execute("UPDATE libros SET estado=$1 WHERE id=$2", [estado, id]);
+    return;
+  }
+  const filas = lsRead<Record<string, unknown>>(LS_LIBROS);
+  const f = filas.find((r) => Number(r.id) === id);
+  if (f) {
+    f.estado = estado;
+    lsWrite(LS_LIBROS, filas);
+  }
+}
+
+async function contarActasLibro(tipo: string, numero: string): Promise<number> {
+  await initDb();
+  if (mode === "sqlite" && db) {
+    const rows = await db.select<{ n: number }[]>("SELECT COUNT(*) AS n FROM sacramentos WHERE tipo=$1 AND libro=$2", [tipo, numero]);
+    return rows[0]?.n ?? 0;
+  }
+  return lsRead<Record<string, unknown>>(LS_ACTAS).filter(
+    (a) => a.tipo === tipo && normNumero(String(a.libro ?? "")) === normNumero(numero)
+  ).length;
+}
+
+export async function eliminarLibro(id: number): Promise<void> {
+  const libros = await listLibros();
+  const libro = libros.find((l) => l.id === id);
+  if (!libro) return;
+  const n = await contarActasLibro(libro.tipo, libro.numero);
+  if (n > 0) {
+    throw new Error(`El libro N° ${libro.numero} tiene ${n} acta(s) cargadas: cerralo en vez de borrarlo.`);
+  }
+  await initDb();
+  if (mode === "sqlite" && db) {
+    await db.execute("DELETE FROM libros WHERE id=$1", [id]);
+    return;
+  }
+  lsWrite(
+    LS_LIBROS,
+    lsRead<Record<string, unknown>>(LS_LIBROS).filter((r) => Number(r.id) !== id)
+  );
+}
+
+/** Siguiente folio libre sugerido: máximo folio numérico usado + 1 (1 si el libro está vacío). */
+export async function siguienteFolio(tipo: string, numero: string): Promise<number> {
+  await initDb();
+  let folios: string[];
+  if (mode === "sqlite" && db) {
+    const rows = await db.select<{ folio: unknown }[]>("SELECT folio FROM sacramentos WHERE tipo=$1 AND libro=$2", [tipo, numero]);
+    folios = rows.map((r) => String(r.folio ?? ""));
+  } else {
+    folios = lsRead<Record<string, unknown>>(LS_ACTAS)
+      .filter((a) => a.tipo === tipo && normNumero(String(a.libro ?? "")) === normNumero(numero))
+      .map((a) => String(a.folio ?? ""));
+  }
+  let max = 0;
+  for (const f of folios) {
+    if (/^\d+$/.test(f.trim())) max = Math.max(max, Number(f.trim()));
+  }
+  return max + 1;
+}
+
+/**
+ * Bloqueo: el acta exige libro registrado (y abierto al crear).
+ * Sin libro del tipo no se puede guardar. Primera Confesión no lleva libro.
+ */
+async function exigirLibro(tipo: TipoSacramento, numero: string, soloAbierto: boolean): Promise<void> {
+  if (!TIPOS_CON_LIBRO.includes(tipo)) return;
+  const libro = (await listLibros()).find(
+    (l) => l.tipo === tipo && normNumero(l.numero) === normNumero(numero ?? "")
+  );
+  if (!(numero ?? "").trim() || !libro) {
+    throw new Error(`Sin libro registrado de ${ETIQUETA_TIPO[tipo]}: registralo en Configuración → Libros de actas.`);
+  }
+  if (soloAbierto && libro.estado !== "abierto") {
+    throw new Error(`El libro N° ${libro.numero} de ${ETIQUETA_TIPO[tipo]} está cerrado: elegí uno abierto.`);
+  }
+}
+
 // --- Configuración de la parroquia (membrete y firma de certificados) ---
 
 export interface ParishConfig {
@@ -1255,6 +1420,7 @@ export async function dumpLocalJSON(): Promise<string> {
       config: await getConfig(),
       personas: lsRead<Persona>(LS_PERSONAS),
       sacramentos: lsRead<Record<string, unknown>>(LS_ACTAS),
+      libros: lsRead<Record<string, unknown>>(LS_LIBROS),
       auditoria: lsRead<Record<string, unknown>>(LS_AUDITORIA_WEB),
     },
     null,

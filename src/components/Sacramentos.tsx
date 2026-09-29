@@ -17,11 +17,14 @@ import {
   getLegajoPersona,
   isTauri,
   listActas,
+  listLibros,
   nombreActa,
+  siguienteFolio,
   type ActaDetalle,
   type ActaRow,
   type FiltrosActas,
   type LegajoPersona,
+  type LibroFisico,
   type ParishConfig,
   type Persona,
   type SacramentoInput,
@@ -212,6 +215,85 @@ function BautismoPrevio({
         </Campo>
       </div>
     </fieldset>
+  );
+}
+
+/**
+ * Libro como lista (solo registrados del tipo; abiertos al crear).
+ * Al elegir libro con folio vacío sugiere el siguiente folio libre.
+ */
+function LibroFolio({
+  tipo,
+  libro,
+  folio,
+  esEdicion,
+  onLibro,
+  onFolio,
+}: {
+  tipo: TipoSacramento;
+  libro: string;
+  folio: string;
+  esEdicion: boolean;
+  onLibro: (v: string) => void;
+  onFolio: (v: string) => void;
+}) {
+  const [opciones, setOpciones] = useState<LibroFisico[]>([]);
+
+  useEffect(() => {
+    let vivo = true;
+    listLibros()
+      .then((todos) => {
+        if (vivo) setOpciones(todos.filter((l) => l.tipo === tipo && (esEdicion || l.estado === "abierto")));
+      })
+      .catch(() => undefined);
+    return () => {
+      vivo = false;
+    };
+  }, [tipo, esEdicion]);
+
+  async function elegirLibro(v: string) {
+    onLibro(v);
+    if (!esEdicion && !folio.trim() && v) {
+      try {
+        onFolio(String(await siguienteFolio(tipo, v)));
+      } catch {
+        /* deja el folio vacío */
+      }
+    }
+  }
+
+  const elegido = opciones.find((l) => l.numero === libro);
+  const sinOpciones = opciones.length === 0;
+  const folioNum = /^\d+$/.test(folio.trim()) ? Number(folio.trim()) : null;
+  const superaHojas = elegido && folioNum !== null && folioNum > elegido.hojas;
+
+  return (
+    <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+      <Campo label="Libro *">
+        <select className={inputCls} value={libro} onChange={(e) => void elegirLibro(e.target.value)}>
+          <option value="">— Elegir libro —</option>
+          {opciones.map((l) => (
+            <option key={l.id} value={l.numero}>
+              N° {l.numero} ({l.hojas} hojas{l.estado === "cerrado" ? " · cerrado" : ""})
+            </option>
+          ))}
+          {libro && !elegido && <option value={libro}>{libro} (no registrado)</option>}
+        </select>
+        {sinOpciones && (
+          <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+            No hay libro {esEdicion ? "registrado" : "abierto"} de este tipo. Registralo en Configuración → Libros de actas.
+          </p>
+        )}
+      </Campo>
+      <Campo label="Folio">
+        <input className={inputCls} value={folio} onChange={(e) => onFolio(e.target.value)} />
+        {superaHojas && (
+          <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+            El libro N° {elegido.numero} tiene {elegido.hojas} hojas.
+          </p>
+        )}
+      </Campo>
+    </div>
   );
 }
 
@@ -688,7 +770,7 @@ export default function Sacramentos({ actual }: { actual: string }) {
                 className={inputCls}
                 value={f.tipo}
                 disabled={editId !== null}
-                onChange={(e) => setForm({ ...form, tipo: e.target.value as TipoSacramento })}
+                onChange={(e) => setForm({ ...form, tipo: e.target.value as TipoSacramento, libro: "", folio: "" })}
               >
                 {TIPOS_SACRAMENTO.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
@@ -758,14 +840,14 @@ export default function Sacramentos({ actual }: { actual: string }) {
               </Campo>
               {/* Primera Confesión no lleva libro: no se pide ni se guarda. */}
               {f.tipo !== "CONFESION" && (
-              <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-                <Campo label="Libro">
-                  <input className={inputCls} value={f.libro} onChange={setF("libro")} />
-                </Campo>
-                <Campo label="Folio">
-                  <input className={inputCls} value={f.folio} onChange={setF("folio")} />
-                </Campo>
-              </div>
+                <LibroFolio
+                  tipo={f.tipo}
+                  libro={f.libro}
+                  folio={f.folio}
+                  esEdicion={editId !== null}
+                  onLibro={(v) => setForm({ ...form, libro: v })}
+                  onFolio={(v) => setForm({ ...form, folio: v })}
+                />
               )}
               {f.tipo === "CONFIRMACION" && (
                 <div className="md:col-span-3">

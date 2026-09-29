@@ -3,7 +3,9 @@ import {
   TIPOS_SACRAMENTO,
   getMode,
   initDb,
+  listLibros,
   sqlSelect,
+  type EstadoLibro,
   type Persona,
   type TipoSacramento,
 } from "./db";
@@ -49,7 +51,10 @@ function esConEdad(t: TipoSacramento): t is ConEdad {
 export interface LibroUso {
   tipo: TipoSacramento;
   libro: string;
-  cantidad: number;
+  cantidad: number; // actas cargadas
+  folios: number; // folios distintos usados (2 actas por hoja cuentan 1)
+  hojas: number; // 0 si el libro no está registrado
+  estado: EstadoLibro | "no registrado";
 }
 
 /** Desglose de matrimonios para la planilla del Obispado (punto 2). */
@@ -133,6 +138,7 @@ interface ActaPlana {
   tipo: TipoSacramento;
   fecha_sacramento: string;
   libro: string;
+  folio?: string;
   persona_id: number | null;
   esposo_persona_id?: number | null;
   esposa_persona_id?: number | null;
@@ -340,26 +346,56 @@ export async function informeEstadistico(desde: string, hasta: string): Promise<
 /** Uso acumulado por libro (sin filtro de fechas: los libros se completan con los años). */
 export async function usoLibros(): Promise<LibroUso[]> {
   await initDb();
+  // Fuente: el registro (muestra todos los libros, incluso con 0 actas).
+  const reg = await listLibros();
+  const porLibro = new Map<string, { actas: number; folios: Set<string> }>();
+  const acumular = (tipo: string, libro: string, folio: string) => {
+    if (tipo === "CONFESION") return; // Primera Confesión no lleva libro
+    const k = `${tipo}||${libro || "—"}`;
+    let e = porLibro.get(k);
+    if (!e) {
+      e = { actas: 0, folios: new Set() };
+      porLibro.set(k, e);
+    }
+    e.actas++;
+    if (folio.trim()) e.folios.add(folio.trim());
+  };
   if (getMode() === "sqlite") {
-    return sqlSelect<{ tipo: TipoSacramento; libro: string; n: number }[]>(
-      `SELECT tipo, libro, COUNT(*) AS n FROM sacramentos
-        WHERE tipo <> 'CONFESION'
-        GROUP BY tipo, libro ORDER BY tipo, LENGTH(libro), libro`
-    ).then((rows) =>
-      rows.map((r) => ({ tipo: r.tipo, libro: r.libro || "—", cantidad: r.n }))
+    const rows = await sqlSelect<{ tipo: string; libro: unknown; folio: unknown }[]>(
+      `SELECT tipo, libro, folio FROM sacramentos WHERE tipo <> 'CONFESION'`
     );
+    for (const r of rows) acumular(r.tipo, String(r.libro ?? ""), String(r.folio ?? ""));
+  } else {
+    for (const a of lsRead<ActaPlana>(LS_KEYS.actas)) {
+      if (!TIPOS_SACRAMENTO.includes(a.tipo)) continue;
+      acumular(a.tipo, a.libro || "", a.folio || "");
+    }
   }
-  const mapa = new Map<string, LibroUso>();
-  for (const a of lsRead<ActaPlana>(LS_KEYS.actas)) {
-    if (!TIPOS_SACRAMENTO.includes(a.tipo)) continue;
-    if (a.tipo === "CONFESION") continue; // Primera Confesión no lleva libro
-    const libro = a.libro || "—";
-    const k = `${a.tipo}||${libro}`;
-    const e = mapa.get(k);
-    if (e) e.cantidad++;
-    else mapa.set(k, { tipo: a.tipo, libro, cantidad: 1 });
+  const filas: LibroUso[] = reg.map((l) => {
+    const e = porLibro.get(`${l.tipo}||${l.numero}`);
+    if (e) porLibro.delete(`${l.tipo}||${l.numero}`);
+    return {
+      tipo: l.tipo,
+      libro: l.numero,
+      cantidad: e?.actas ?? 0,
+      folios: e?.folios.size ?? 0,
+      hojas: l.hojas,
+      estado: l.estado,
+    };
+  });
+  // Actas con libro no registrado (legado): se muestran aparte sin capacidad.
+  for (const [k, e] of porLibro) {
+    const [tipo, libro] = k.split("||");
+    filas.push({
+      tipo: tipo as TipoSacramento,
+      libro,
+      cantidad: e.actas,
+      folios: e.folios.size,
+      hojas: 0,
+      estado: "no registrado",
+    });
   }
-  return [...mapa.values()].sort((x, y) =>
+  return filas.sort((x, y) =>
     x.tipo === y.tipo ? x.libro.localeCompare(y.libro, undefined, { numeric: true }) : x.tipo.localeCompare(y.tipo)
   );
 }

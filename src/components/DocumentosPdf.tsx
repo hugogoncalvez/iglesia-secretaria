@@ -27,7 +27,7 @@ const rep = StyleSheet.create({
   pie: { marginTop: 18, fontSize: 8, color: "#777", textAlign: "right" },
 });
 
-function InformeDoc({ inf, libros, capacidad, cfg }: { inf: InformeEstadistico; libros: LibroUso[]; capacidad: number; cfg: ParishConfig }) {
+function InformeDoc({ inf, libros, cfg }: { inf: InformeEstadistico; libros: LibroUso[]; cfg: ParishConfig }) {
   return (
     <Document>
       <Page size="A4" style={rep.page}>
@@ -92,18 +92,20 @@ function InformeDoc({ inf, libros, capacidad, cfg }: { inf: InformeEstadistico; 
           ))}
         </View>
 
-        <Text style={rep.h2}>Estado de libros (acumulado, capacidad {capacidad} actas)</Text>
+        <Text style={rep.h2}>Estado de libros (acumulado)</Text>
         <View style={rep.tabla}>
           <View style={rep.fila}>
             <Text style={rep.celdaHead}>Sacramento</Text>
             <Text style={rep.celdaHead}>Libro</Text>
-            <Text style={[rep.celdaHead, { textAlign: "right" }]}>Usadas</Text>
+            <Text style={[rep.celdaHead, { textAlign: "right" }]}>Folios</Text>
+            <Text style={[rep.celdaHead, { textAlign: "right" }]}>Actas</Text>
           </View>
           {libros.map((l, i) => (
             <View style={rep.fila} key={i}>
               <Text style={rep.celda}>{l.tipo}</Text>
               <Text style={rep.celda}>{l.libro}</Text>
-              <Text style={rep.celdaDer}>{l.cantidad}/{capacidad}</Text>
+              <Text style={rep.celdaDer}>{l.hojas > 0 ? `${l.folios}/${l.hojas}` : `${l.folios}`}</Text>
+              <Text style={rep.celdaDer}>{l.cantidad}</Text>
             </View>
           ))}
         </View>
@@ -117,10 +119,9 @@ function InformeDoc({ inf, libros, capacidad, cfg }: { inf: InformeEstadistico; 
 export async function generarInformeBlob(
   inf: InformeEstadistico,
   libros: LibroUso[],
-  capacidad: number,
   cfg: ParishConfig
 ): Promise<Blob> {
-  return pdf(<InformeDoc inf={inf} libros={libros} capacidad={capacidad} cfg={cfg} />).toBlob();
+  return pdf(<InformeDoc inf={inf} libros={libros} cfg={cfg} />).toBlob();
 }
 
 /* ---------------- Planilla Obispado (réplica Datos Estadísticos) ---------------- */

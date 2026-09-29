@@ -1,6 +1,7 @@
 import {
   PERSONA_VACIA,
   crearActa,
+  crearLibro,
   listActas,
   type Persona,
   type SacramentoInput,
@@ -14,6 +15,12 @@ export async function sembrarDemo(): Promise<number> {
   if (existentes.length > 0) {
     throw new Error("Ya hay actas cargadas. Borralas si querés recargar la demo.");
   }
+
+  // Las actas demo exigen libros registrados: se siembran primero.
+  await crearLibro("BAUTISMO", "12", 200);
+  await crearLibro("COMUNION", "4", 200);
+  await crearLibro("CONFIRMACION", "6", 200);
+  await crearLibro("MATRIMONIO", "3", 200);
 
   const base: Pick<
     SacramentoInput,

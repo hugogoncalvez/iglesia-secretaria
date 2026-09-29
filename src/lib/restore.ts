@@ -13,6 +13,7 @@ export interface DatosResguardo {
   sacramentos: Fila[];
   usuarios: Fila[];
   auditoria: Fila[];
+  libros: Fila[];
   config: Record<string, string>;
   fecha?: string;
 }
@@ -53,21 +54,23 @@ async function leerDb(path: string): Promise<DatosResguardo> {
     );
   }
   const tablas = await db2.select<{ name: string }[]>(
-    "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('personas','sacramentos','usuarios','config')"
+    "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('personas','sacramentos','usuarios','config','libros')"
   );
   const tiene = new Set(tablas.map((t) => t.name));
   for (const t of ["personas", "sacramentos", "usuarios", "config"]) {
     if (!tiene.has(t)) throw new Error(`La copia no es válida: falta la tabla ${t}.`);
   }
-  const [personas, sacramentos, usuarios, config] = await Promise.all([
+  // 'libros' es opcional: copias viejas no la traen (compat hacia atrás).
+  const [personas, sacramentos, usuarios, config, libros] = await Promise.all([
     db2.select<Fila[]>("SELECT * FROM personas"),
     db2.select<Fila[]>("SELECT * FROM sacramentos"),
     db2.select<Fila[]>("SELECT * FROM usuarios"),
     db2.select<{ clave: string; valor: string }[]>("SELECT clave, valor FROM config"),
+    tiene.has("libros") ? db2.select<Fila[]>("SELECT * FROM libros") : Promise.resolve([] as Fila[]),
   ]);
   const cfg: Record<string, string> = {};
   for (const r of config) cfg[String(r.clave)] = String(r.valor ?? "");
-  return { personas, sacramentos, usuarios, auditoria: [], config: cfg };
+  return { personas, sacramentos, usuarios, auditoria: [], libros, config: cfg };
 }
 
 /** Valida un JSON de resguardo (modo web o archivo .json). */
@@ -98,6 +101,7 @@ export function validarJsonResguardo(texto: string): DatosResguardo {
     sacramentos: arr("sacramentos"),
     usuarios: arr("usuarios"),
     auditoria: arr("auditoria"),
+    libros: arr("libros"),
     config: cfg,
     fecha: typeof o.exported_at === "string" ? o.exported_at : undefined,
   };
@@ -214,6 +218,8 @@ const COLS_ACTA = [
   "conf_padrino_sel",
 ];
 
+const COLS_LIBRO = ["id", "tipo", "numero", "hojas", "estado"];
+
 /**
  * Reemplaza TODOS los datos actuales por los de la copia y recarga la app.
  * Se niega si la copia no trae usuarios (evita quedarse sin acceso).
@@ -231,6 +237,7 @@ export async function aplicarRestauracion(d: DatosResguardo): Promise<void> {
     await sqlExecute("DELETE FROM personas");
     await sqlExecute("DELETE FROM usuarios");
     await sqlExecute("DELETE FROM config");
+    await sqlExecute("DELETE FROM libros");
 
     for (const r of d.personas) {
       const vals = COLS_PERSONA.map((c) =>
@@ -278,6 +285,14 @@ export async function aplicarRestauracion(d: DatosResguardo): Promise<void> {
         valor,
       ]);
     }
+    for (const r of d.libros) {
+      await sqlExecute(
+        `INSERT INTO libros (${COLS_LIBRO.join(",")}) VALUES (${COLS_LIBRO.map(
+          (_, i) => `$${i + 1}`
+        ).join(",")})`,
+        [num(r.id), str(r.tipo), str(r.numero), num(r.hojas) ?? 0, str(r.estado) || "abierto"]
+      );
+    }
     if (d.auditoria.length > 0) {
       await sqlExecute("DELETE FROM auditoria");
       for (const r of d.auditoria) {
@@ -298,13 +313,14 @@ export async function aplicarRestauracion(d: DatosResguardo): Promise<void> {
     });
     localStorage.setItem(LS_KEYS.personas, JSON.stringify(d.personas));
     localStorage.setItem(LS_KEYS.actas, JSON.stringify(sacramentosNorm));
+    localStorage.setItem(LS_KEYS.libros, JSON.stringify(d.libros));
     localStorage.setItem(LS_USUARIOS_KEY, JSON.stringify(d.usuarios));
     if (d.auditoria.length > 0) {
       localStorage.setItem("iglesia_auditoria", JSON.stringify(d.auditoria));
     }
     localStorage.setItem(LS_KEYS.config, JSON.stringify(d.config));
     let maxId = 0;
-    for (const r of [...d.personas, ...d.sacramentos, ...d.usuarios]) {
+    for (const r of [...d.personas, ...d.sacramentos, ...d.usuarios, ...d.libros]) {
       const n = num((r as Fila).id);
       if (n != null && n > maxId) maxId = n;
     }
@@ -314,7 +330,7 @@ export async function aplicarRestauracion(d: DatosResguardo): Promise<void> {
   await logAccion(
     getSession() ?? "?",
     "RESTAURAR",
-    `${d.sacramentos.length} actas · ${d.personas.length} personas · ${d.usuarios.length} usuarios`
+    `${d.sacramentos.length} actas · ${d.personas.length} personas · ${d.usuarios.length} usuarios · ${d.libros.length} libros`
   );
 
   clearSession();

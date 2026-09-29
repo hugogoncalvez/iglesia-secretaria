@@ -4,6 +4,7 @@ import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
 import {
   ABREV_TIPO,
+  ETIQUETA_TIPO,
   TIPOS_SACRAMENTO,
   getConfig,
   isTauri,
@@ -30,8 +31,6 @@ const ETIQUETAS: { tipo: TipoSacramento; label: string; punto: string }[] = [
   { tipo: "CONFESION", label: "Primera Confesión", punto: "bg-[#B45309]" },
 ];
 
-const CAPACIDAD_KEY = "iglesia_capacidad_libro";
-
 function anioActual(): { desde: string; hasta: string } {
   const y = new Date().getFullYear();
   return { desde: `${y}-01-01`, hasta: `${y}-12-31` };
@@ -51,7 +50,7 @@ function mesLargo(ym: string): string {
 
 /* ---------------- CSV (abre en Excel) ---------------- */
 
-function aCSV(inf: InformeEstadistico, libros: LibroUso[], capacidad: number, datos: DatosObispado, anio: string): string {
+function aCSV(inf: InformeEstadistico, libros: LibroUso[], datos: DatosObispado, anio: string): string {
   const L: string[] = [];
   const cel = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
   L.push(`Informe estadístico de sacramentos;${inf.desde || ""} al ${inf.hasta || ""}`);
@@ -66,8 +65,8 @@ function aCSV(inf: InformeEstadistico, libros: LibroUso[], capacidad: number, da
   L.push("Rango de edad;Bautismos;Comuniones;Confirmaciones");
   for (const e of inf.edades) L.push(`${cel(e.bucket)};${e.BAUTISMO};${e.COMUNION};${e.CONFIRMACION}`);
   L.push("");
-  L.push(`Libro (acumulado, capacidad ${capacidad});Sacramento;Usadas`);
-  for (const l of libros) L.push(`${cel(`Libro ${l.libro}`)};${l.tipo};${l.cantidad}`);
+  L.push(`Libro (acumulado);Tipo;N°;Folios usados;Hojas;Actas;Estado`);
+  for (const l of libros) L.push(`${cel(`Libro ${l.libro}`)};${l.tipo};${cel(l.libro)};${l.folios};${l.hojas};${l.cantidad};${l.estado}`);
   L.push("");
   L.push(`Planilla Obispado año ${anio};Cantidad`);
   const baut = (b: string) => inf.edades.find((e) => e.bucket === b)?.BAUTISMO ?? 0;
@@ -93,7 +92,6 @@ export default function Estadisticas() {
   const [rango, setRango] = useState(anioActual);
   const [inf, setInf] = useState<InformeEstadistico | null>(null);
   const [libros, setLibros] = useState<LibroUso[]>([]);
-  const [capacidad, setCapacidad] = useState(() => Number(localStorage.getItem(CAPACIDAD_KEY) ?? 200) || 200);
   const [cargando, setCargando] = useState(true);
   const [err, setErr] = useState("");
   const [okMsg, setOkMsg] = useState("");
@@ -165,7 +163,7 @@ export default function Estadisticas() {
 
   function bajarCSV() {
     if (!inf) return;
-    const blob = new Blob([aCSV(inf, libros, capacidad, datos, anio)], { type: "text/csv;charset=utf-8" });
+    const blob = new Blob([aCSV(inf, libros, datos, anio)], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = `estadisticas-${rango.desde || "todo"}_${rango.hasta || "todo"}.csv`;
@@ -193,7 +191,7 @@ export default function Estadisticas() {
       const { generarInformeBlob, generarPlanillaBlob } = await import("./DocumentosPdf");
       const blob =
         cual === "informe"
-          ? await generarInformeBlob(inf, libros, capacidad, cfg)
+          ? await generarInformeBlob(inf, libros, cfg)
           : await generarPlanillaBlob(inf, datos, anio, cfg);
       if (!isTauri()) {
         const a = document.createElement("a");
@@ -232,20 +230,7 @@ export default function Estadisticas() {
           <label className="text-xs font-medium">Hasta</label>
           <input type="date" className="mt-1 w-full border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-2 bg-parroquia-100 dark:bg-noche-600 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-parroquia-700" value={rango.hasta} onChange={(e) => setRango({ ...rango, hasta: e.target.value })} />
         </div>
-        <div>
-          <label className="text-xs font-medium">Capacidad por libro</label>
-          <input
-            type="number" min={1}
-            className="mt-1 w-full border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-2 bg-parroquia-100 dark:bg-noche-600 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-parroquia-700"
-            value={capacidad}
-            onChange={(e) => {
-              const n = Number(e.target.value) || 200;
-              setCapacidad(n);
-              localStorage.setItem(CAPACIDAD_KEY, String(n));
-            }}
-          />
-        </div>
-        <div className="flex items-end gap-2 md:col-span-2">
+        <div className="flex items-end gap-2 md:col-span-3">
           <button className="bg-parroquia-900 hover:bg-parroquia-700 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors">Generar</button>
           <button
             type="button"
@@ -399,31 +384,35 @@ export default function Estadisticas() {
           </div>
 
           <div className="bg-white dark:bg-noche-700 dark:text-slate-100 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
-            <h3 className="font-display font-bold px-4 pt-3">Estado de libros <span className="text-xs font-normal text-slate-500 dark:text-slate-400">(acumulado total · capacidad {capacidad} actas)</span></h3>
+            <h3 className="font-display font-bold px-4 pt-3">Estado de libros <span className="text-xs font-normal text-slate-500 dark:text-slate-400">(folios usados / hojas)</span></h3>
             {libros.length === 0 ? (
-              <p className="p-4 text-sm text-slate-500 dark:text-slate-300">Sin libros registrados.</p>
+              <p className="p-4 text-sm text-slate-500 dark:text-slate-300">Sin libros registrados. Cargalos en Configuración → Libros de actas.</p>
             ) : (
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-xs uppercase tracking-wide text-parroquia-900 dark:text-slate-300">
                     <th className="px-4 py-2 text-left font-semibold">Libro</th>
                     <th className="px-2 py-2 text-left font-semibold">Sacramento</th>
-                    <th className="px-4 py-2 text-right font-semibold">Usadas</th>
+                    <th className="px-2 py-2 text-left font-semibold">Estado</th>
+                    <th className="px-4 py-2 text-right font-semibold">Folios</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-600">
                   {libros.map((l, i) => {
-                    const pct = Math.min(100, Math.round((l.cantidad / capacidad) * 100));
+                    const pct = l.hojas > 0 ? Math.min(100, Math.round((l.folios / l.hojas) * 100)) : 0;
                     return (
                       <tr key={i} className="hover:bg-slate-100 dark:hover:bg-slate-600/50">
                         <td className="px-4 py-2">Libro {l.libro}</td>
-                        <td className="px-2 py-2 text-slate-600 dark:text-slate-300">{l.tipo}</td>
+                        <td className="px-2 py-2 text-slate-600 dark:text-slate-300">{ETIQUETA_TIPO[l.tipo] ?? l.tipo}</td>
+                        <td className="px-2 py-2 text-slate-600 dark:text-slate-300">{l.estado === "abierto" ? "Abierto" : l.estado === "cerrado" ? "Cerrado" : "No registrado"}</td>
                         <td className="px-4 py-2">
                           <div className="flex items-center justify-end gap-2">
-                            <div className="w-24 h-2 rounded bg-slate-100 dark:bg-slate-600 overflow-hidden">
-                              <div className={`h-full rounded ${pct >= 100 ? "bg-red-600" : pct >= 80 ? "bg-amber-500" : "bg-emerald-600"}`} style={{ width: `${pct}%` }} />
-                            </div>
-                            <span className="tabular-nums font-medium w-16 text-right">{l.cantidad}/{capacidad}</span>
+                            {l.hojas > 0 && (
+                              <div className="w-24 h-2 rounded bg-slate-100 dark:bg-slate-600 overflow-hidden">
+                                <div className={`h-full rounded ${pct >= 100 ? "bg-red-600" : pct >= 80 ? "bg-amber-500" : "bg-emerald-600"}`} style={{ width: `${pct}%` }} />
+                              </div>
+                            )}
+                            <span className="tabular-nums font-medium text-right">{l.hojas > 0 ? `${l.folios}/${l.hojas}` : `${l.folios}`} <span className="font-normal text-slate-500 dark:text-slate-400">({l.cantidad} actas)</span></span>
                           </div>
                         </td>
                       </tr>
