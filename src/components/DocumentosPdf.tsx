@@ -345,12 +345,12 @@ function ConfesionDoc({ a, cfg }: { a: ActaDetalle; cfg: ParishConfig }) {
       <Page size={[CONFESION_ANCHO, CONFESION_ALTO]} style={confesion.page}>
         <Image src={FONDO_CONFESION} style={confesion.fondo} />
         <Text style={[confesion.nombre, { fontSize: fsNombre }]}>{nombre}</Text>
-        <Text style={[confesion.renglon, { top: 304 }]}>{cfg.parroquia || ""}</Text>
+        <Text style={[confesion.renglon, { top: 304 }]}>{a.parroquia_capilla || cfg.parroquia || ""}</Text>
         <Text style={[confesion.renglon, { top: 352 }]}>{fechaLarga(a.fecha_sacramento) === "—" ? "" : fechaLarga(a.fecha_sacramento)}</Text>
         {cfg.parroco ? <Text style={confesion.firma}>Pbro. {cfg.parroco}</Text> : null}
         <View style={confesion.lineaFirma} />
         {cfg.parroquia ? (
-          <Text style={confesion.cargo}>Párroco {cfg.parroquia.replace(/^parroquia\s+/i, "")}</Text>
+          <Text style={confesion.cargo}>Párroco {(a.parroquia_capilla || cfg.parroquia).replace(/^parroquia\s+/i, "")}</Text>
         ) : null}
       </Page>
     </Document>
@@ -398,12 +398,12 @@ function ComunionDoc({ a, cfg }: { a: ActaDetalle; cfg: ParishConfig }) {
       <Page size={[COMUNION_ANCHO, COMUNION_ALTO]} style={comunion.page}>
         <Image src={FONDO_COMUNION} style={comunion.fondo} />
         <Text style={[comunion.nombre, { fontSize: fsNombre }]}>{nombre}</Text>
-        <Text style={[comunion.renglon, { top: 259 }]}>{cfg.parroquia || ""}</Text>
+        <Text style={[comunion.renglon, { top: 259 }]}>{a.parroquia_capilla || cfg.parroquia || ""}</Text>
         <Text style={[comunion.renglon, { top: 286 }]}>{fechaLarga(a.fecha_sacramento) === "—" ? "" : fechaLarga(a.fecha_sacramento)}</Text>
         {cfg.parroco ? <Text style={comunion.firma}>Pbro. {cfg.parroco}</Text> : null}
         <View style={comunion.lineaFirma} />
         {cfg.parroquia ? (
-          <Text style={comunion.cargo}>Párroco {cfg.parroquia.replace(/^parroquia\s+/i, "")}</Text>
+          <Text style={comunion.cargo}>Párroco {(a.parroquia_capilla || cfg.parroquia).replace(/^parroquia\s+/i, "")}</Text>
         ) : null}
       </Page>
     </Document>
@@ -467,7 +467,7 @@ function ConfirmacionDoc({ a, cfg }: { a: ActaDetalle; cfg: ParishConfig }) {
         {cfg.parroco ? <Text style={confirmacion.firma}>Pbro. {cfg.parroco}</Text> : null}
         <View style={confirmacion.lineaFirma} />
         {cfg.parroquia ? (
-          <Text style={confirmacion.cargo}>Párroco {cfg.parroquia.replace(/^parroquia\s+/i, "")}</Text>
+          <Text style={confirmacion.cargo}>Párroco {(a.parroquia_capilla || cfg.parroquia).replace(/^parroquia\s+/i, "")}</Text>
         ) : null}
       </Page>
     </Document>

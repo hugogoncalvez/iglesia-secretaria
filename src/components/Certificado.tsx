@@ -117,8 +117,8 @@ function firmaCargo(cfg: ParishConfig): { firma: string; cargo: string } {
  */
 export function PrimeraConfesionPrintable({ a, cfg }: { a: ActaDetalle; cfg: ParishConfig }) {
   const nombre = a.persona.apellido_nombres || "";
-  // "En la ...": siempre la parroquia de Configuración (dato institucional fijo).
-  const lugar = cfg.parroquia || "";
+  // "En la ...": el lugar del acta (autocompleta con la parroquia de Configuración).
+  const lugar = a.parroquia_capilla || cfg.parroquia || "";
   const fecha = fechaLarga(a.fecha_sacramento) === "—" ? "" : fechaLarga(a.fecha_sacramento);
   const firma = cfg.parroco ? `Pbro. ${cfg.parroco}` : "";
   const cargo = `Párroco ${cfg.parroquia.replace(/^parroquia\s+/i, "")}`;
